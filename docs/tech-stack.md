@@ -1,0 +1,258 @@
+# c1oser.dev 기술 스택 결정
+
+- 상태: 제안 (2026-09-30). 5절의 네 가지는 확인이 필요하다.
+- 함께 읽을 문서: [기능 명세서](functional-spec.md), [MVP 범위](mvp-scope.md)
+- 범위: MVP(P0)를 만드는 데 필요한 스택. P1 이후에 필요한 것은 4절에 따로 적었다.
+
+## 1. 선정 기준
+
+1. **이미 정한 것을 따른다.** Spring Boot 4.1.1, Java 21, Gradle은 저장소에 있고, PostgreSQL, 토큰 인증, 분리된 SPA는 [MVP 범위 6절](mvp-scope.md#6-결정-사항)에서 확정했다.
+2. **Spring Boot가 버전을 관리하는 것을 먼저 쓴다.** 버전을 직접 맞출 의존성을 줄인다.
+3. **서비스가 동작하는 데 필요한 구성 요소를 늘리지 않는다.** MVP는 애플리케이션 하나와 DB 하나로 돌아간다. 검색 엔진, 캐시 서버, 메시지 큐는 두지 않는다. 모니터링과 부하 테스트 도구는 서비스 바깥에 따로 두며, 꺼져 있어도 서비스는 동작한다.
+
+## 2. 결정 요약
+
+### 백엔드 (이 저장소)
+
+| 영역 | 결정 | 상태 |
+|---|---|---|
+| 언어·런타임 | Java 21 | 기존 |
+| 프레임워크 | Spring Boot 4.1.1, Spring MVC | 기존 |
+| 빌드 | Gradle 9.7.1 (Wrapper, Groovy DSL) | 기존 |
+| 데이터베이스 | PostgreSQL 18 | 확정 |
+| 데이터 접근 | Spring Data JPA (Hibernate 7.4) | 제안 |
+| 스키마 관리 | Flyway | 제안 |
+| 인증 | Spring Security 7.1. JWT 액세스 토큰 + DB에 저장하는 리프레시 토큰 | 확정 (세부는 제안) |
+| 비밀번호 | BCrypt | 제안 |
+| 입력 검증 | Bean Validation | 제안 |
+| 검색 | PostgreSQL `pg_trgm` 인덱스 | 제안 |
+| 예약 작업 | Spring `@Scheduled` | 제안 |
+| API 문서 | springdoc-openapi 3.1 (Swagger UI) | 제안 |
+| 테스트 | JUnit 6, MockMvc, Testcontainers 2.0 | 제안 |
+| 상태 확인·메트릭 | Spring Boot Actuator + Micrometer Prometheus 레지스트리 | 확정 |
+
+### 프런트엔드 (별도 저장소)
+
+| 영역 | 결정 | 상태 |
+|---|---|---|
+| 언어 | TypeScript | 제안 |
+| 프레임워크 | React + Vite (SPA) | 확인 필요 |
+| 라우팅 | React Router | 제안 |
+| 서버 상태 | TanStack Query | 제안 |
+| 스타일 | Tailwind CSS. 시안의 색과 글꼴을 테마 토큰으로 옮긴다 | 제안 |
+| 마크다운 렌더 | react-markdown + remark-gfm + rehype-sanitize | 제안 |
+| 코드 강조 | Shiki | 제안 |
+| 편집기 | CodeMirror 6 (마크다운 모드) | 제안 |
+| 명령어 해석 | 직접 구현 | 제안 |
+| 테스트 | Vitest, Playwright | 제안 |
+| 패키지 관리 | npm | 제안 |
+
+### 개발 환경·배포
+
+| 영역 | 결정 | 상태 |
+|---|---|---|
+| 로컬 DB | Docker Compose. Spring Boot의 Docker Compose 지원으로 앱 실행 시 함께 뜬다 | 제안 |
+| 설정 | `application.yaml` + 프로필(`local`, `prod`). 비밀 값은 환경 변수 | 제안 |
+| CI | GitHub Actions. 푸시와 PR마다 빌드와 테스트 | 제안 |
+| 모니터링 | Prometheus(수집) + Grafana(대시보드) | 확정 |
+| 부하 테스트 | k6 | 확정 |
+| 백엔드 배포 | Docker 이미지 | 제안 |
+| 호스팅 | 정하지 않음 | 확인 필요 |
+| 도메인 구성 | 프런트 `c1oser.dev`, API `api.c1oser.dev` | 확인 필요 |
+
+## 3. 결정별 이유
+
+### 3.1 데이터 접근: Spring Data JPA
+
+글, 폴더, 태그, 사용자를 만들고 고치는 일이 대부분이라 JPA의 기본 기능으로 충분하다. JPA로 쓰기 불편한 두 가지는 네이티브 쿼리로 쓴다.
+
+- 폴더 트리 조회: 폴더는 부모 폴더를 가리키는 구조로 저장하고, 하위 트리는 재귀 CTE로 한 번에 읽는다.
+- 내용 검색: 3.4절의 `pg_trgm` 조회.
+
+| 버린 대안 | 이유 |
+|---|---|
+| MyBatis | 단순 CRUD까지 SQL을 직접 써야 한다 |
+| jOOQ | 코드 생성 단계가 빌드에 추가된다. MVP 규모에서는 이득이 작다 |
+| Spring Data JDBC | 글과 태그의 다대다 관계를 직접 다뤄야 한다 |
+
+### 3.2 스키마 관리: Flyway
+
+스키마 변경을 SQL 파일로 남긴다. 여러 PC에서 작업하므로 DB 구조를 코드와 함께 맞추는 수단이 필요하다. `pg_trgm` 확장 설치와 인덱스 생성도 마이그레이션에 넣는다. Hibernate의 `ddl-auto`는 `validate`로만 쓴다.
+
+Liquibase는 XML·YAML 형식이 필요 없어서 고르지 않았다.
+
+### 3.3 인증: JWT 액세스 토큰 + 리프레시 토큰
+
+| 토큰 | 형태 | 보관 | 수명 |
+|---|---|---|---|
+| 액세스 | JWT (HS256 서명) | 프런트의 메모리 | 짧게 (15분) |
+| 리프레시 | 임의 문자열. 서버는 해시만 DB에 저장 | `HttpOnly`, `Secure`, `SameSite=Lax` 쿠키 | "로그인 유지"를 켜면 30일, 끄면 브라우저를 닫을 때까지 |
+
+- 리프레시 토큰은 쓸 때마다 새로 발급하고, 로그아웃하면 DB에서 지운다. 서버가 토큰을 무효로 만들 수 있다.
+- 액세스 토큰을 `localStorage`에 두지 않는다. 마크다운을 렌더하는 서비스라 스크립트 주입에 대비한다.
+- JWT 발급과 검증은 Spring Security에 포함된 Nimbus(`spring-boot-starter-security-oauth2-resource-server`)를 쓴다. 별도 JWT 라이브러리를 넣지 않는다.
+- 로그인 시도 제한은 계정별 실패 횟수를 DB에 기록해 처리한다.
+- 비밀번호는 Spring Security 기본인 BCrypt로 해시한다. Argon2는 추가 라이브러리(Bouncy Castle)가 필요해서 고르지 않았다.
+
+수명 값(15분, 30일)은 시작값이다.
+
+| 버린 대안 | 이유 |
+|---|---|
+| 서버 세션 + 쿠키 | 구현은 가장 단순하다. 다만 MVP 범위에서 토큰 방식으로 확정했고, 프런트와 API의 도메인이 나뉜다 |
+| jjwt 라이브러리 | Spring Security에 같은 기능이 있다 |
+| 리프레시 토큰도 JWT | 서버에서 무효로 만들 수 없다 |
+
+### 3.4 검색: PostgreSQL `pg_trgm`
+
+`grep`은 본문에서, `find`는 파일 이름과 경로에서 부분 일치를 찾는다. `pg_trgm`의 GIN 인덱스는 `ILIKE '%포인터%'` 같은 부분 일치를 인덱스로 처리하고 한글에도 동작한다. 일치한 줄과 줄 번호는 애플리케이션에서 본문을 줄 단위로 나눠 뽑는다.
+
+| 버린 대안 | 이유 |
+|---|---|
+| PostgreSQL 전문 검색 (`tsvector`) | 기본 설정에 한국어 형태소 분석이 없다. `grep`의 "글자 그대로 찾기"와도 맞지 않는다 |
+| Elasticsearch, OpenSearch | 운영할 서버가 하나 더 생긴다. DB와 동기화도 필요하다 |
+
+글이 많아져 검색이 느려지면 그때 검색 엔진을 검토한다.
+
+### 3.5 마크다운: 서버는 원문만 저장한다
+
+- 서버는 제목, 태그, 본문(마크다운 원문)을 컬럼으로 나눠 저장한다. front matter는 내보내기와 "저장될 모습"에서 조립한다.
+- 렌더는 프런트가 한다. `rehype-sanitize`로 스크립트를 제거한다.
+- 글자 수와 읽는 시간은 서버가 원문에서 계산한다.
+
+### 3.6 예약 작업: `@Scheduled`
+
+휴지통의 30일 자동 비우기 하나뿐이라 Spring의 기본 스케줄러로 충분하다. 서버를 한 대로 운영한다는 전제다. 여러 대가 되면 중복 실행을 막는 장치(ShedLock 등)를 추가한다.
+
+### 3.7 API 문서: springdoc-openapi
+
+프런트가 별도 저장소라 API 명세를 공유할 수단이 필요하다. 컨트롤러에서 OpenAPI 문서와 Swagger UI를 만든다. 3.1.1은 Spring Boot 4.1.0을 기준으로 빌드돼 있다. 운영 프로필에서는 끈다.
+
+### 3.8 테스트: JUnit, MockMvc, Testcontainers
+
+- 단위 테스트: JUnit 6 (Spring Boot 관리 버전).
+- API 테스트: MockMvc로 요청과 권한을 검증한다.
+- DB 테스트: Testcontainers로 실제 PostgreSQL을 띄운다. 재귀 CTE와 `pg_trgm`은 H2에서 동작하지 않으므로 H2를 쓰지 않는다.
+
+Testcontainers는 Docker가 필요하다. CI(GitHub Actions의 Ubuntu 러너)에는 Docker가 들어 있다.
+
+### 3.9 프런트엔드: React + Vite SPA
+
+- 글을 읽으려면 로그인이 필요하므로 검색 엔진에 노출할 페이지가 랜딩과 `/help`뿐이다. 서버 렌더링이 주는 이점이 작아 SPA로 충분하다.
+- 화면 전체가 명령 입력, 자동완성, 단축키로 움직이는 클라이언트 상태 중심의 앱이다.
+- 빌드 결과가 정적 파일이라 배포가 단순하다.
+
+| 영역 | 고른 이유 |
+|---|---|
+| TanStack Query | 폴더 목록, 글, 검색 결과 같은 서버 데이터를 캐시하고 다시 불러온다 |
+| Tailwind CSS | 시안의 색 팔레트와 글꼴 2가지(JetBrains Mono, IBM Plex Sans KR)를 토큰으로 두고 화면마다 재사용한다 |
+| CodeMirror 6 | MVP 편집기는 마크다운 원문 편집이다. 줄 번호, 단축키(`Ctrl+S`), 마크다운 강조를 제공한다 |
+| 명령어 해석 직접 구현 | P0 명령어가 17줄이고 문법이 "명령어 + 인자 + 옵션"뿐이다. 파이프와 리다이렉트는 P2다 |
+| Playwright | [MVP 범위 4절](mvp-scope.md#4-완료-기준)의 시나리오 12개를 자동으로 검증한다 |
+
+| 버린 대안 | 이유 |
+|---|---|
+| Next.js | 서버 렌더링이 필요한 페이지가 거의 없다. 프런트용 서버를 하나 더 운영하게 된다 |
+| Vue, Svelte | 기술적으로는 무방하다. 마크다운·편집기 라이브러리 선택지는 React 쪽이 가장 넓다 |
+| 서버 템플릿 (Thymeleaf) | 명령 입력과 자동완성 같은 상호작용을 만들기 어렵다 |
+
+P1의 블록 편집기에 쓸 라이브러리는 그때 정한다.
+
+### 3.10 개발 환경·배포
+
+- 로컬 DB는 Docker Compose로 띄운다. `spring-boot-docker-compose`가 앱을 실행할 때 `compose.yaml`의 PostgreSQL을 함께 띄우고 접속 정보를 넣어 준다. PC마다 DB를 따로 설치하지 않는다.
+- 백엔드는 Docker 이미지로 배포한다. 어디에 올리든 같은 이미지를 쓴다.
+- `.dev` 도메인은 브라우저가 HTTPS만 허용한다. 프런트와 API를 같은 사이트(`c1oser.dev`와 `api.c1oser.dev`)에 두면 리프레시 쿠키를 `SameSite=Lax`로 쓸 수 있다. API에는 프런트 출처만 허용하는 CORS 설정을 둔다.
+
+### 3.11 모니터링과 부하 테스트: Prometheus, Grafana, k6
+
+세 도구는 한 묶음으로 쓴다. k6가 부하를 걸고, Prometheus가 그동안의 서버 지표를 모으고, Grafana가 둘을 같은 시간축에 보여 준다.
+
+| 도구 | 역할 | 연결 |
+|---|---|---|
+| Micrometer | 애플리케이션 지표를 만든다 | Actuator의 `/actuator/prometheus`로 노출한다 |
+| Prometheus | 지표를 주기적으로 긁어 저장한다 | 앱의 `/actuator/prometheus`를 수집한다 |
+| Grafana | 대시보드로 보여 준다 | Prometheus를 데이터 소스로 쓴다 |
+| k6 | 시나리오대로 부하를 건다 | 결과를 Prometheus에 remote write로 보낸다 |
+
+- **보는 지표**: 요청 수, 응답 시간(p95), 오류율, JVM 메모리와 GC, DB 커넥션 풀. Actuator가 기본으로 내는 지표라 코드를 추가하지 않는다.
+- **부하 시나리오**: [MVP 범위 5절](mvp-scope.md#5-백엔드-설계-초안)의 API 중 자주 불릴 것부터 만든다. 로그인, 폴더 목록, 글 읽기, 내용 검색, 글 저장 순이다. 내용 검색은 "검색 엔진 없이 `pg_trgm`으로 충분한가"(3.4절)를 확인하는 수단이기도 하다.
+- **합격 기준**: k6의 threshold로 적어 두면 기준을 넘을 때 실행이 실패한다. 목표 수치는 아직 없다 (5절 4번).
+- **위치**: k6 스크립트는 이 저장소의 `load-test/`에 JavaScript로 둔다. Prometheus와 Grafana는 `compose.monitoring.yaml`에 따로 정의해 필요할 때만 띄운다. 평소 개발에서 앱과 함께 뜨는 것은 PostgreSQL뿐이다.
+- **실행 시점**: 부하 테스트는 푸시마다 돌리지 않는다. 검색처럼 성능이 걸린 기능을 넣은 뒤와 배포 전에 직접 돌린다.
+- **보안**: `/actuator/prometheus`는 밖에서 열리지 않게 한다. 운영에서는 Actuator를 별도 포트로 분리하고 외부에 노출하지 않는다.
+
+k6, Prometheus, Grafana는 모두 공식 Docker 이미지(`grafana/k6`, `prom/prometheus`, `grafana/grafana`)로 실행한다. PC에 따로 설치하지 않는다.
+
+| 버린 대안 | 이유 |
+|---|---|
+| JMeter | 시나리오가 XML이라 코드 리뷰와 버전 관리가 불편하다 |
+| Gatling | 시나리오를 Java·Scala로 쓰고 별도 빌드가 필요하다. Grafana와 연결하려면 설정이 더 든다 |
+| 상용 모니터링 서비스 | 비용이 든다. 호스팅이 정해지지 않았다 |
+
+로그 수집(Loki 등), 분산 추적, PostgreSQL 자체 지표(postgres_exporter)는 넣지 않았다. 서버가 한 대인 MVP에서는 애플리케이션 지표와 로그 파일로 충분하다.
+
+운영 환경에서 Prometheus와 Grafana를 어디에 둘지는 호스팅(5절 2번)이 정해져야 정할 수 있다.
+
+## 4. MVP 뒤에 추가될 것
+
+| 기능 | 필요한 것 |
+|---|---|
+| 소셜 로그인 (AUTH-08) | Spring Security OAuth2 Client. Google, GitHub, Kakao, Naver에 앱 등록 |
+| 비밀번호 찾기, 메일 알림 (AUTH-07, NOTI-06) | 메일 발송 서비스 |
+| 블록 편집기 (POST-10) | 블록 편집기 라이브러리 |
+| 그래프 (LINK-03) | 그래프 시각화 라이브러리 |
+| 가져오기·내보내기 (ME-07, 08) | zip 처리, GitHub API |
+| 이미지 첨부 | 파일 저장소. 시안에 이미지 업로드가 없어 MVP에는 없다 |
+
+## 5. 확인이 필요한 것
+
+| # | 항목 | 제안 | 정해지지 않으면 |
+|---|---|---|---|
+| 1 | 프런트 프레임워크 | React + Vite | 프런트 저장소를 만들 수 없다. 백엔드 작업은 영향이 없다 |
+| 2 | 호스팅 | 백엔드는 컨테이너를 돌릴 수 있는 곳, DB는 관리형 PostgreSQL, 프런트는 정적 호스팅 | 배포 전까지만 정하면 된다. 비용과 계정이 걸려 있어 제안만 했다 |
+| 3 | 도메인 구성 | `c1oser.dev` + `api.c1oser.dev` | 쿠키와 CORS 설정 값이 달라진다 |
+| 4 | 성능 목표 | 없음. 예상 사용자 수와 응답 시간 목표를 받아야 한다 | k6의 합격 기준을 적을 수 없다. 측정은 할 수 있다 |
+
+## 6. 백엔드에 추가할 의존성
+
+아래 이름은 모두 Maven Central에 Spring Boot 4.1.1용으로 올라와 있는 것을 확인했다 (2026-09-30).
+
+```groovy
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
+	runtimeOnly 'org.postgresql:postgresql'
+	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+```
+
+- 버전을 직접 적는 것은 springdoc 하나다. 나머지는 Spring Boot가 관리한다 (PostgreSQL 드라이버 42.7.13, Flyway 12.4.0, Hibernate 7.4.5, Micrometer 1.17.1, Testcontainers 2.0.5).
+- k6, Prometheus, Grafana는 Gradle 의존성이 아니다. Docker 이미지로 실행한다.
+- 이 목록으로 빌드해 보지는 않았다. `build.gradle`은 아직 바꾸지 않았다.
+
+## 7. 개발 PC 요구사항
+
+| 도구 | 필요 버전 | 이 PC |
+|---|---|---|
+| JDK | 21 | 21.0.6 |
+| Docker | Compose와 Testcontainers가 동작하는 버전. k6, Prometheus, Grafana도 Docker로 실행한다 | 24.0.6 |
+| Node.js | 프런트 작업 시 | 22.14.0 |
+
+다른 PC에서 작업하려면 Docker를 설치해야 한다. [Git 가이드](git-guide.md)에는 아직 이 내용이 없다.
