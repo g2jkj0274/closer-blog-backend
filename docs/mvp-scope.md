@@ -2,6 +2,7 @@
 
 - 상태: 범위 확정 (2026-09-30)
 - 함께 읽을 문서: [기능 명세서](functional-spec.md). 이 문서의 ID는 기능 명세서의 요구사항 ID다.
+- 5절의 백엔드 설계는 [DB 설계](erd.md)와 [API 명세서](api-spec.md)로 구체화했다. 둘이 다르면 그 문서들을 따른다.
 
 ## 1. MVP가 검증할 것
 
@@ -85,49 +86,39 @@
 
 ### 데이터 모델
 
-| 엔티티 | 주요 필드 |
-|---|---|
-| User | 아이디, 이메일, 비밀번호 해시, 표시 이름, 한 줄 소개, 연락처, 가입일 |
-| Folder | 소유자, 부모 폴더, 이름, 만든 날 |
-| Post | 소유자, 폴더, 파일 이름, 제목, 본문(마크다운), 공개 범위, 만든 날, 고친 날, 지운 날 |
-| Tag | 이름 |
-| PostTag | 글, 태그 |
+자세한 설계는 [DB 설계](erd.md)에 있다. 요약하면 다음과 같다.
 
-- `(부모 폴더, 이름)`과 `(폴더, 파일 이름)`은 각각 고유하다.
-- 휴지통은 Post의 "지운 날"로 표현한다. 지운 지 30일이 넘은 글은 예약 작업이 완전히 지운다.
+| 테이블 | 담는 것 |
+|---|---|
+| `users` | 아이디, 이메일, 비밀번호 해시, 표시 이름, 한 줄 소개, 연락처, 가입일, 로그인 실패 횟수 |
+| `refresh_tokens` | 리프레시 토큰의 해시. 로그인 한 번마다 한 가족 |
+| `folders` | 소유자, 부모 폴더, 이름, 홈 기준 경로. 사용자마다 홈 폴더가 하나 있다 |
+| `posts` | 소유자, 폴더, 파일 이름, 제목, 본문(마크다운), 공개 범위, 버전, 만든 날, 고친 날, 지운 날 |
+| `tags`, `post_tags` | 태그 이름표와 글에 붙은 태그 |
+
+- `(부모 폴더, 이름)`과 살아 있는 글의 `(폴더, 파일 이름)`은 각각 고유하다.
+- 휴지통은 글의 "지운 날"로 표현한다. 지운 지 30일이 넘은 글은 예약 작업이 완전히 지운다.
 
 ### API
 
-| 메서드 | 경로 | 용도 |
-|---|---|---|
-| POST | `/api/v1/auth/signup` | 회원가입 |
-| POST | `/api/v1/auth/login` | 로그인 |
-| POST | `/api/v1/auth/logout` | 로그아웃 |
-| GET | `/api/v1/me` | 내 정보 |
-| PATCH | `/api/v1/me` | 프로필 수정 |
-| GET | `/api/v1/me/summary` | 홈 요약 (폴더 수, 글 수, 오늘 쓴 글 수) |
-| GET | `/api/v1/users` | 사람 목록, 찾기, 정렬 |
-| GET | `/api/v1/users/{username}` | 프로필 |
-| GET | `/api/v1/users/{username}/tree` | 폴더 트리 |
-| GET | `/api/v1/fs?path=` | 경로 조회. 폴더면 목록, 글이면 글을 돌려준다 |
-| POST | `/api/v1/folders` | 폴더 만들기 |
-| DELETE | `/api/v1/folders/{id}` | 빈 폴더 지우기 |
-| POST | `/api/v1/posts` | 글 만들기 |
-| GET | `/api/v1/posts/{id}` | 글 읽기 |
-| PATCH | `/api/v1/posts/{id}` | 수정, 이동, 이름 변경, 공개 범위, 태그 |
-| DELETE | `/api/v1/posts/{id}` | 휴지통으로. `?permanent=true`면 완전 삭제 |
-| POST | `/api/v1/posts/{id}/restore` | 복구 |
-| GET | `/api/v1/trash` | 휴지통 목록 |
-| GET | `/api/v1/tags/{name}/posts` | 태그별 글 목록 |
-| GET | `/api/v1/search/content?q=&scope=` | 내용 검색 |
-| GET | `/api/v1/search/names?q=` | 이름 검색 |
+자세한 명세는 [API 명세서](api-spec.md)에 있다. 기본 경로는 `/api/v1`이다.
+
+| 영역 | 엔드포인트 |
+|---|---|
+| 인증 | `POST /auth/signup`, `GET /auth/availability`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout` |
+| 나 | `GET /me`, `PUT /me/profile`, `GET /me/summary` |
+| 사람 | `GET /users`, `GET /users/{username}`, `GET /users/{username}/posts`, `GET /users/{username}/tree` |
+| 폴더·경로 | `POST /folders`, `GET /folders/{id}`, `DELETE /folders/{id}`, `GET /fs?path=` |
+| 글 | `POST /posts`, `GET /posts/{id}`, `PATCH /posts/{id}`, `DELETE /posts/{id}` (휴지통으로) |
+| 휴지통 | `GET /trash`, `POST /trash/{id}/restore`, `DELETE /trash/{id}` (완전 삭제) |
+| 검색·태그 | `GET /search/content`, `GET /search/names`, `GET /tags`, `GET /tags/{name}/posts` |
 
 ### 작업 순서
 
 | 단계 | 내용 | 끝나면 통과하는 시나리오 |
 |---|---|---|
-| 1 | DB·보안 설정, 회원가입, 로그인, 접근 제어 | 1, 2, 12 |
-| 2 | 폴더, 글 CRUD, 경로 조회, 태그 | 3, 4, 5, 10, 11 |
+| 1 | DB·보안 설정, 회원가입(홈 폴더 포함), 로그인, 토큰 갱신, 로그아웃, 접근 제어, 홈 요약 | 1, 2, 12 |
+| 2 | 폴더, 글 CRUD, 경로 조회, 트리, 태그 | 3, 4, 5, 10, 11 |
 | 3 | 공개 범위, 사람 목록, 다른 사람 블로그 | 6, 7 |
 | 4 | 휴지통, 자동 비우기 | 9 |
 | 5 | 검색 | 8 |
