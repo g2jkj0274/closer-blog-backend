@@ -76,10 +76,12 @@
 | 401 | `INVALID_CREDENTIALS` | 아이디·이메일 또는 비밀번호가 틀림. 어느 쪽인지 알리지 않는다 |
 | 403 | `FORBIDDEN` | 읽을 수 있지만 고칠 권한이 없음 |
 | 404 | `NOT_FOUND` | 없음. 읽을 수 없는 글, 휴지통의 글도 같다 |
+| 405 | `METHOD_NOT_ALLOWED` | 경로는 있지만 그 HTTP 메서드를 지원하지 않음 |
 | 409 | `USERNAME_TAKEN`, `EMAIL_TAKEN` | 가입 중복 |
 | 409 | `FOLDER_NAME_TAKEN`, `POST_NAME_TAKEN` | 같은 폴더 안 이름 중복 |
 | 409 | `FOLDER_NOT_EMPTY` | `rmdir` 대상에 하위 폴더, 글, 휴지통 글이 있음 |
 | 409 | `POST_VERSION_CONFLICT` | 다른 곳에서 먼저 고친 글을 저장함 |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | 요청 본문이 JSON이 아님 (`Content-Type`이 `application/json`이 아님) |
 | 423 | `ACCOUNT_LOCKED` | 로그인 잠금 중. `message`에 풀리는 시각 |
 | 500 | `INTERNAL_ERROR` | 그 밖 |
 
