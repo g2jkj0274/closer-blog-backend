@@ -21,6 +21,9 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+
 @RestControllerAdvice           // 모든 컨트롤러에서 나온 예외를 이 클래스가 받아 JSON으로 응답
 public class GlobalExceptionHandler {
 
@@ -37,6 +40,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ErrorResponse> handleApiException(ApiException ex) {
         return respond(ex.getErrorCode(), ex.getMessage());
+    }
+
+    // 보안 필터에서 SecurityErrorHandler가 넘겨준다
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
+        return respond(ErrorCode.UNAUTHORIZED, ErrorCode.UNAUTHORIZED.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return respond(ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
