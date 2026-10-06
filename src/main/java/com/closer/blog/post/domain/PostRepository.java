@@ -30,6 +30,20 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     List<Post> findTrashAfter(@Param("ownerId") Long ownerId, @Param("deletedAt") Instant deletedAt,
                               @Param("id") Long id, Limit limit);
 
+    // 그 사람의 글 첫 페이지. 최근 수정순. 보는 사람이 읽을 수 있는 것만
+    @Query("select p from Post p join fetch p.folder"
+            + " where p.owner.id = :ownerId and " + PostVisibility.READABLE_JPQL
+            + " order by p.updatedAt desc, p.id desc")
+    List<Post> findReadableByOwner(@Param("ownerId") Long ownerId, @Param("viewerId") Long viewerId, Limit limit);
+
+    // 그 사람의 글 다음 페이지. (updatedAt, id)가 커서보다 뒤인 것
+    @Query("select p from Post p join fetch p.folder"
+            + " where p.owner.id = :ownerId and " + PostVisibility.READABLE_JPQL
+            + " and (p.updatedAt < :updatedAt or (p.updatedAt = :updatedAt and p.id < :id))"
+            + " order by p.updatedAt desc, p.id desc")
+    List<Post> findReadableByOwnerAfter(@Param("ownerId") Long ownerId, @Param("viewerId") Long viewerId,
+                                        @Param("updatedAt") Instant updatedAt, @Param("id") Long id, Limit limit);
+
     // post_tags 행은 DB의 ON DELETE CASCADE가 지운다
     @Modifying
     @Query("delete from Post p where p.deletedAt < :before")

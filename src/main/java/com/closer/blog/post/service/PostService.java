@@ -13,10 +13,13 @@ import com.closer.blog.post.domain.Post;
 import com.closer.blog.post.domain.PostRepository;
 import com.closer.blog.post.dto.CreatePostRequest;
 import com.closer.blog.post.dto.PostDetail;
+import com.closer.blog.post.dto.PostSummary;
 import com.closer.blog.post.dto.TrashItem;
 import com.closer.blog.post.dto.UpdatePostRequest;
 import com.closer.blog.tag.domain.Tag;
 import com.closer.blog.tag.service.TagService;
+import com.closer.blog.user.domain.User;
+import com.closer.blog.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,8 @@ public class PostService {
     private final FolderService folderService;
 
     private final TagService tagService;
+
+    private final UserService userService;
 
     private final PostAccessPolicy accessPolicy;
 
@@ -110,6 +115,26 @@ public class PostService {
             postRepository.flush();
         }
         return PostDetail.of(post, userId);
+    }
+
+    /**
+     * 그 사람의 글을 폴더와 상관없이 최근 수정순으로. 보는 사람이 읽을 수 있는 것만 나온다.
+     */
+    @Transactional(readOnly = true)
+    public CursorPage<PostSummary> listByOwner(Long viewerId, String username, String cursor, int size) {
+        User owner = userService.getByUsername(username);
+        Limit limit = Limit.of(size + 1);
+        List<Post> rows;
+        if (cursor == null) {
+            rows = postRepository.findReadableByOwner(owner.getId(), viewerId, limit);
+        }
+        else {
+            CursorCodec.Cursor after = CursorCodec.decode(cursor);
+            rows = postRepository.findReadableByOwnerAfter(owner.getId(), viewerId, after.sortKeyAsInstant(),
+                    after.id(), limit);
+        }
+        return CursorPage.of(rows, size, post -> PostSummary.of(post, viewerId),
+                post -> CursorCodec.encode(post.getUpdatedAt().toString(), post.getId()));
     }
 
     /**

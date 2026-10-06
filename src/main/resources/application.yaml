@@ -5,6 +5,9 @@ spring:
     open-in-view: false     # 요청이 끝날 때 까지 DB 연결을 붙잡지 않게 한다.
     hibernate:
       ddl-auto: validate      # Hibernate는 테이블을 만들고나 고치지 않고, 엔티티와 테이블이 맞는지 검사한 한다.
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100   # 목록에서 글마다 태그를 따로 읽지 않고 IN (...)으로 묶어 읽는다
   docker:
     compose:
       lifecycle-management: start-only      # 앱을 켤 때, compose.yaml의 DB가 꺼져 있으면 띄우고, 앱을 끌 때는 DB를 그대로 둔다.

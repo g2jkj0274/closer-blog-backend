@@ -81,6 +81,15 @@ public class UserService {
         return user;
     }
 
+    /**
+     * 아이디로 사용자를 찾는다. 대소문자는 가리지 않는다. 없으면 404다.
+     */
+    @Transactional(readOnly = true)
+    public User getByUsername(String username) {
+        return userRepository.findByUsername(normalizeUsername(username))
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "없는 사용자입니다."));
+    }
+
     @Transactional(readOnly = true)
     public boolean isUsernameAvailable(String username) {
         return !userRepository.existsByUsername(normalizeUsername(username));

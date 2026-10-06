@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class PostAccessPolicy {
 
+    // 쿼리에서 쓰는 같은 규칙은 PostVisibility다
     public boolean canRead(Post post, Long viewerId) {
         return !post.isDeleted() && (post.isOwnedBy(viewerId) || post.getMode() == Post.MODE_PUBLIC);
     }
