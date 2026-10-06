@@ -59,7 +59,27 @@ public class Folder {
         return new Folder(owner, null, "", "", now);
     }
 
+    /**
+     * 하위 폴더. 소유자는 부모와 같고, 경로는 부모 경로 뒤에 이름을 붙인다.
+     */
+    public static Folder child(Folder parent, String name, Instant now) {
+        String path = parent.isHome() ? name : parent.getPath() + "/" + name;
+        return new Folder(parent.getOwner(), parent, name, path, now);
+    }
+
     public boolean isHome() {
         return parent == null;
+    }
+
+    public boolean isOwnedBy(Long userId) {
+        // 지연 로딩 프록시라도 getId()는 DB를 읽지 않는다
+        return owner.getId().equals(userId);
+    }
+
+    /**
+     * 홈 아래 몇 단계인가. 홈은 0, python은 1, python/basic은 2.
+     */
+    public int depth() {
+        return path.isEmpty() ? 0 : path.split("/").length;
     }
 }

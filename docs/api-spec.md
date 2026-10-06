@@ -120,20 +120,21 @@ com.closer.blog
 ├── common              횡단 관심사. 도메인을 모른다
 │   ├── config          SecurityConfig, CorsConfig, OpenApiConfig, SchedulingConfig
 │   ├── error           ErrorCode, ApiException, GlobalExceptionHandler, ErrorResponse
-│   ├── security        JwtProvider, @CurrentUser
+│   ├── security        JwtProvider, @CurrentUserId, SecurityErrorHandler
 │   └── web             CursorPage, CursorCodec, PathSyntax
 │
 │   ── 도메인: 엔티티를 갖고 쓰기를 맡는다 ──
 ├── user                User. 가입 시 사용자 생성, 프로필 수정
 ├── auth                AuthController /auth/*. RefreshToken, LoginAttemptPolicy
-├── folder              Folder. FolderController /folders/*, /users/{username}/tree
+├── folder              Folder. FolderController POST·DELETE /folders (mkdir, rmdir)
 ├── tag                 Tag. 이름 정규화, 찾거나 만들기
 ├── post                Post, PostTag, PostAccessPolicy, PostVisibility
 │                       PostController /posts/*, TrashController /trash/*
 │                       UserPostController /users/{username}/posts, TrashPurgeScheduler
 │
 │   ── 조회: 테이블이 없고 여러 도메인을 읽기만 한다 ──
-├── fs                  FsController /fs. 경로 → 폴더 또는 글
+├── fs                  FsController /fs, FolderQueryController GET /folders/{id}, /users/{username}/tree
+│                       경로 → 폴더 또는 글. 글 수·글 목록이 함께 나가는 폴더 조회
 ├── search              SearchController /search/*, TagQueryController /tags/*
 └── profile             MeController /me/*, UserController /users, /users/{username}
 ```
@@ -154,7 +155,7 @@ com.closer.blog
 | profile | user, folder, post |
 
 - 다른 패키지는 그 패키지의 service로 부른다. 저장소를 직접 부르지 않는다.
-- 예외로 search와 profile은 여러 테이블을 묶는 네이티브 쿼리를 자기 저장소에 둘 수 있다. 읽기 전용이고, 글을 걸러야 하면 반드시 `PostVisibility`의 조건을 쓴다 ([DB 설계 5.1절](erd.md#51-읽기-권한)).
+- 예외로 조회 패키지(fs, search, profile)는 여러 테이블을 묶는 네이티브 쿼리를 자기 저장소에 둘 수 있다. 읽기 전용이고, 글을 걸러야 하면 반드시 `PostVisibility`의 조건을 쓴다 ([DB 설계 5.1절](erd.md#51-읽기-권한)).
 - 이 규칙은 ArchUnit 같은 테스트로 고정하는 것을 권한다.
 
 ## 3. 엔드포인트 목록
@@ -172,9 +173,9 @@ com.closer.blog
 | profile | GET | `/users` | 사람 목록·찾기 | `ls /users`, `find @kim` | USER-01, 02 |
 | profile | GET | `/users/{username}` | 프로필 | `cd /users/kim` | USER-03 |
 | post | GET | `/users/{username}/posts` | 그 사람의 글 (최근 수정순) | `cd /users/kim` | USER-03 |
-| folder | GET | `/users/{username}/tree` | 폴더 트리 | 왼쪽 트리 | DIR-05 |
+| fs | GET | `/users/{username}/tree` | 폴더 트리 | 왼쪽 트리 | DIR-05 |
 | folder | POST | `/folders` | 폴더 만들기 | `mkdir` | DIR-01 |
-| folder | GET | `/folders/{id}` | 폴더 안 목록 | `ls`, `cd` | DIR-02, 03, 06 |
+| fs | GET | `/folders/{id}` | 폴더 안 목록 | `ls`, `cd` | DIR-02, 03, 06 |
 | folder | DELETE | `/folders/{id}` | 빈 폴더 지우기 | `rmdir` | DIR-04 |
 | fs | GET | `/fs` | 경로 → 폴더 또는 글 | `cd`, `ls`, `cat`, `vi` | DIR-02, POST-02, ERR-01 |
 | post | POST | `/posts` | 글 만들기 | `touch` 뒤 첫 `:w` | POST-01, 04, TAG-01 |
@@ -555,7 +556,7 @@ GET /folders/2?sort=name&size=50&cursor=
 |---|---|
 | 400 `VALIDATION_ERROR` | 홈 폴더 |
 | 403, 404 | 1.3절 |
-| 409 `FOLDER_NOT_EMPTY` | 하위 폴더, 글, 휴지통 글 중 하나라도 있음. `message`에 남은 것을 적는다 (`"휴지통에 이 폴더의 글 2개가 있습니다. 비우거나 복구한 뒤 지우세요."`) |
+| 409 `FOLDER_NOT_EMPTY` | 하위 폴더, 글, 휴지통 글 중 하나라도 있음. `message`는 하위 폴더인지 글인지까지 알려 준다 (`"폴더에 글이 남아 있어 지울 수 없습니다. 휴지통에 있는 글도 비우거나 복구해야 합니다."`). 글 검사는 `posts`의 외래 키가 맡는다. folder 패키지는 post를 모르기 때문이다 |
 
 ### GET /fs
 

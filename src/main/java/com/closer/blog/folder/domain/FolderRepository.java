@@ -8,4 +8,8 @@ public interface FolderRepository extends JpaRepository<Folder, Long> {
 
     Optional<Folder> findByOwnerIdAndParentIsNull(Long ownerId);
 
+    boolean existsByParentIdAndName(Long parentId, String name);
+
+    boolean existsByParentId(Long parentId);
+
 }

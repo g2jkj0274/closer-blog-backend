@@ -1,0 +1,41 @@
+package com.closer.blog.folder.controller;
+
+import java.net.URI;
+
+import com.closer.blog.common.security.CurrentUserId;
+import com.closer.blog.folder.domain.Folder;
+import com.closer.blog.folder.dto.CreateFolderRequest;
+import com.closer.blog.folder.dto.FolderSummary;
+import com.closer.blog.folder.service.FolderService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/folders")
+@RequiredArgsConstructor
+public class FolderController {
+
+    private final FolderService folderService;
+
+    @PostMapping
+    ResponseEntity<FolderSummary> create(@CurrentUserId Long userId,
+                                         @Valid @RequestBody CreateFolderRequest request) {
+        Folder folder = folderService.create(userId, request.parentId(), request.name());
+        return ResponseEntity.created(URI.create("/api/v1/folders/" + folder.getId()))
+                .body(FolderSummary.created(folder));
+    }
+
+    @DeleteMapping("/{id}")
+    ResponseEntity<Void> delete(@CurrentUserId Long userId, @PathVariable Long id) {
+        folderService.delete(userId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+}
