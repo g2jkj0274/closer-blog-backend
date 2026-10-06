@@ -68,8 +68,11 @@ public class FolderService {
         }
     }
 
-    // 없으면 404, 남의 것이면 403. 폴더는 누구나 볼 수 있으므로 존재를 숨기지 않는다 (docs/api-spec.md 1.3절)
-    private Folder findOwnedFolder(Long userId, Long folderId, String forbiddenMessage) {
+    /**
+     * 내 폴더를 찾는다. 없으면 404, 남의 것이면 403. 폴더는 누구나 볼 수 있으므로 존재를 숨기지 않는다
+     * (docs/api-spec.md 1.3절). 글을 쓰거나 옮길 때 post 패키지도 쓴다.
+     */
+    public Folder findOwnedFolder(Long userId, Long folderId, String forbiddenMessage) {
         Folder folder = folderRepository.findById(folderId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "없는 폴더입니다."));
         if (!folder.isOwnedBy(userId)) {
