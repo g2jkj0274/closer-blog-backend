@@ -16,3 +16,8 @@ app:
     access-token-ttl: 15m
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  auth:
+    refresh-token:
+      persistent-ttl: 30d   # 로그인 유지
+      session-ttl: 24h      # 로그인 유지 안 함 (쿠키는 브라우저를 닫으면 사라짐)
+      cookie-secure: true

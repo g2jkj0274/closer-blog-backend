@@ -3,9 +3,12 @@ package com.closer.blog.auth.controller;
 import java.net.URI;
 
 import com.closer.blog.auth.dto.AvailabilityResponse;
+import com.closer.blog.auth.dto.LoginRequest;
+import com.closer.blog.auth.dto.LoginResponse;
 import com.closer.blog.auth.dto.SignupRequest;
 import com.closer.blog.auth.dto.SignupResponse;
 import com.closer.blog.auth.service.AuthService;
+import com.closer.blog.auth.service.AuthService.LoginResult;
 import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
 import com.closer.blog.user.domain.User;
@@ -15,6 +18,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +35,8 @@ public class AuthController {
     private final AuthService authService;
 
     private final UserService userService;
+
+    private final RefreshTokenCookieFactory refreshTokenCookieFactory;
 
     @PostMapping("/signup")
     ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
@@ -54,6 +60,14 @@ public class AuthController {
         boolean available = (username != null) ? userService.isUsernameAvailable(username)
                 : userService.isEmailAvailable(email);
         return new AvailabilityResponse(available);
+    }
+
+    @PostMapping("/login")
+    ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        LoginResult result = authService.login(request);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(result.refreshToken()).toString())
+                .body(LoginResponse.of(result.accessToken(), result.user()));
     }
 
 }

@@ -1,5 +1,6 @@
 package com.closer.blog.user.domain;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import jakarta.persistence.Column;
@@ -69,5 +70,25 @@ public class User {
     public static User register(String username, String email, String passwordHash, boolean mailOptIn,
                                 Instant now) {
         return new User(username, email, passwordHash, mailOptIn, now);
+    }
+
+    public boolean isLocked(Instant now) {
+        return lockedUntil != null && lockedUntil.isAfter(now);
+    }
+
+    /**
+     * 비밀번호가 틀렸을 때. maxFailures번째 실패에서 잠그고 횟수를 0으로 되돌린다 (docs/erd.md 4.1절).
+     */
+    public void recordLoginFailure(Instant now, int maxFailures, Duration lockDuration) {
+        failedLoginCount++;
+        if (failedLoginCount >= maxFailures) {
+            lockedUntil = now.plus(lockDuration);
+            failedLoginCount = 0;
+        }
+    }
+
+    public void recordLoginSuccess() {
+        failedLoginCount = 0;
+        lockedUntil = null;
     }
 }
