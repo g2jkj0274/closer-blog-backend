@@ -29,6 +29,7 @@
 | 예약 작업 | Spring `@Scheduled` | 제안 |
 | API 문서 | springdoc-openapi 3.1 (Swagger UI) | 제안 |
 | 테스트 | JUnit 6, MockMvc, Testcontainers 2.0 | 제안 |
+| 반복 코드 생성 | Lombok. 허용한 어노테이션만 쓴다 (3.12절) | 확정 |
 | 상태 확인·메트릭 | Spring Boot Actuator + Micrometer Prometheus 레지스트리 | 확정 |
 
 ### 프런트엔드 (별도 저장소)
@@ -206,6 +207,25 @@ k6, Prometheus, Grafana는 모두 공식 Docker 이미지(`grafana/k6`, `prom/pr
 
 운영 환경에서 Prometheus와 Grafana를 어디에 둘지는 호스팅(5절 2번)이 정해져야 정할 수 있다.
 
+### 3.12 반복 코드: Lombok (허용한 것만)
+
+엔티티의 getter, JPA용 기본 생성자, 생성자 주입은 Lombok으로 만든다. 요청·응답 객체는 Java `record`로 만들므로 Lombok을 쓰지 않는다. 버전은 Spring Boot가 관리한다.
+
+| 허용 | 쓰는 곳 |
+|---|---|
+| `@Getter` | 엔티티 |
+| `@NoArgsConstructor(access = AccessLevel.PROTECTED)` | 엔티티. JPA만 쓰는 생성자 |
+| `@RequiredArgsConstructor` | 서비스, 컨트롤러, 설정 등 생성자 주입을 받는 빈 |
+
+| 금지 | 이유 |
+|---|---|
+| `@Data`, `@Setter` | 아무 곳에서나 값을 바꿀 수 있게 된다. 값은 의미 있는 메서드(`User.register`, `post.rename` 등)로만 바꾼다 |
+| 엔티티의 `@ToString`, `@EqualsAndHashCode` | 지연 로딩 연관을 건드려 쿼리가 더 나가거나, 서로 참조하는 엔티티 사이에서 무한 반복이 생긴다 |
+| `@Builder` | 정적 팩토리 메서드가 지키는 생성 규칙을 건너뛰게 된다 |
+| `@AllArgsConstructor` | 필드 순서가 바뀌면 같은 타입 인자가 소리 없이 뒤바뀐다 |
+
+생성자 매개변수에 `@Qualifier` 같은 어노테이션이 필요한 빈은 `@RequiredArgsConstructor`가 그 어노테이션을 옮기지 않으므로 생성자를 직접 쓴다 (`SecurityErrorHandler`).
+
 ## 4. MVP 뒤에 추가될 것
 
 | 기능 | 필요한 것 |
@@ -243,6 +263,8 @@ dependencies {
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 
@@ -256,9 +278,9 @@ dependencies {
 }
 ```
 
-- 버전을 직접 적는 것은 springdoc 하나다. 나머지는 Spring Boot가 관리한다 (PostgreSQL 드라이버 42.7.13, Flyway 12.4.0, Hibernate 7.4.5, Micrometer 1.17.1, Testcontainers 2.0.5).
+- 버전을 직접 적는 것은 springdoc 하나다. 나머지는 Spring Boot가 관리한다 (PostgreSQL 드라이버 42.7.13, Flyway 12.4.0, Hibernate 7.4.5, Micrometer 1.17.1, Testcontainers 2.0.5, Lombok 1.18.46).
 - k6, Prometheus, Grafana는 Gradle 의존성이 아니다. Docker 이미지로 실행한다.
-- 이 목록으로 빌드해 보지는 않았다. `build.gradle`은 아직 바꾸지 않았다.
+- `build.gradle`에 반영했다. Lombok은 2026-10-06에 추가했다.
 
 ## 7. 개발 PC 요구사항
 

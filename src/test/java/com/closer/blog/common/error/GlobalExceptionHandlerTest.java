@@ -23,10 +23,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-@WebMvcTest         // 웹 계층(컨트롤러, @RestControllerAdvice)만 띄운다. -> 성능 빠름
+@WebMvcTest(controllers = GlobalExceptionHandlerTest.TestController.class)         // 웹 계층(컨트롤러, @RestControllerAdvice)만 띄운다. -> 성능 빠름
 @AutoConfigureMockMvc(addFilters = false)           // 보안 필터를 끈다. -> 현재 보안 설정이 없어서 모든 요청이 401로 막히기 때문.
 @Import(GlobalExceptionHandlerTest.TestController.class)
-public class GlobalExceptionHandlerTest {
+class GlobalExceptionHandlerTest {
 
     @Autowired
     MockMvc mockMvc;            // 실제 서버를 띄우지 않고 HTTP 요청을 흉내 내 응답을 검사

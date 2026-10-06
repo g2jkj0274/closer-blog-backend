@@ -89,9 +89,9 @@ class SecurityConfigTest {
 
     @Test
     void authEndpointsArePublic() throws Exception {
-        // 아직 컨트롤러가 없으므로 401이 아니라 404가 나오면 통과다
-        mockMvc.perform(get("/api/v1/auth/availability"))
-                .andExpect(status().isNotFound());
+        // 토큰 없이 불러도 401이 아니라 정상 응답이 와야 한다
+        mockMvc.perform(get("/api/v1/auth/availability").param("username", "nobody"))
+                .andExpect(status().isOk());
     }
 
     @Test
