@@ -1,0 +1,48 @@
+package com.closer.blog.search.controller;
+
+import com.closer.blog.common.security.CurrentUserId;
+import com.closer.blog.search.dto.TagPosts;
+import com.closer.blog.search.dto.TagSuggestions;
+import com.closer.blog.search.service.SearchService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 태그 조회. 태그를 만들고 다는 일은 글을 저장할 때 post·tag 패키지가 한다.
+ */
+@RestController
+@RequestMapping("/api/v1/tags")
+@RequiredArgsConstructor
+public class TagQueryController {
+
+    private final SearchService searchService;
+
+    // 편집기 태그 입력의 자동완성
+    @GetMapping
+    TagSuggestions suggest(@CurrentUserId Long viewerId, @RequestParam String q,
+                           @RequestParam(defaultValue = "10")
+                           @Min(value = 1, message = "size는 1~20입니다.")
+                           @Max(value = 20, message = "size는 1~20입니다.") int size) {
+        return searchService.suggestTags(viewerId, q, size);
+    }
+
+    // 태그를 눌렀을 때. {name}은 # 없이 URL 인코딩해 보낸다
+    @GetMapping("/{name}/posts")
+    TagPosts posts(@CurrentUserId Long viewerId, @PathVariable String name,
+                   @RequestParam(defaultValue = "all")
+                   @Pattern(regexp = "all|mine", message = "scope는 all 또는 mine입니다.") String scope,
+                   @RequestParam(required = false) String cursor,
+                   @RequestParam(defaultValue = "20")
+                   @Min(value = 1, message = "size는 1~50입니다.")
+                   @Max(value = 50, message = "size는 1~50입니다.") int size) {
+        return searchService.postsByTag(viewerId, name, scope.equals("mine"), cursor, size);
+    }
+
+}

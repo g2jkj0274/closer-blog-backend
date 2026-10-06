@@ -2,7 +2,10 @@ package com.closer.blog.post.service;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
@@ -116,6 +119,20 @@ public class PostService {
             postRepository.flush();
         }
         return PostDetail.of(post, userId);
+    }
+
+    /**
+     * 다른 패키지(search)가 쿼리로 찾은 글 id를 그 순서대로 읽는다. 혹시 읽을 수 없는 글이 섞여 있으면 뺀다.
+     */
+    @Transactional(readOnly = true)
+    public List<Post> findReadableInOrder(List<Long> postIds, Long viewerId) {
+        Map<Long, Post> byId = postRepository.findAllById(postIds).stream()
+                .collect(Collectors.toMap(Post::getId, Function.identity()));
+        return postIds.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .filter(post -> accessPolicy.canRead(post, viewerId))
+                .toList();
     }
 
     /**

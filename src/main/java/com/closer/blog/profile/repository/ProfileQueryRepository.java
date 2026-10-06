@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
+import com.closer.blog.common.sql.LikePatterns;
 import com.closer.blog.common.web.CursorCodec;
 import com.closer.blog.post.domain.PostVisibility;
 import lombok.RequiredArgsConstructor;
@@ -70,7 +71,7 @@ public class ProfileQueryRepository {
         MapSqlParameterSource params = new MapSqlParameterSource().addValue("limit", limit);
         if (q != null) {
             sql.append(" AND (u.username ILIKE :pattern ESCAPE '\\' OR u.display_name ILIKE :pattern ESCAPE '\\')");
-            params.addValue("pattern", "%" + escapeLike(q) + "%");
+            params.addValue("pattern", LikePatterns.contains(q));
         }
         if (after != null && byJoined) {
             sql.append(" AND (u.created_at < :afterJoined OR (u.created_at = :afterJoined AND u.id < :afterId))");
@@ -87,11 +88,6 @@ public class ProfileQueryRepository {
                 rs.getString("username"), rs.getString("display_name"), rs.getString("bio"),
                 rs.getLong("post_count"), rs.getLong("folder_count"),
                 rs.getObject("created_at", OffsetDateTime.class).toInstant()));
-    }
-
-    // 검색어의 \, %, _를 글자로 만든다 (docs/erd.md 5.3절)
-    private static String escapeLike(String q) {
-        return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     // PostgreSQL 드라이버는 Instant를 바로 받지 않는다

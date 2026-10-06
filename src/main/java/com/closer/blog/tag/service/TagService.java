@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import com.closer.blog.tag.domain.Tag;
 import com.closer.blog.tag.domain.TagRepository;
@@ -32,6 +33,14 @@ public class TagService {
             tags.add(tagRepository.findByNameIgnoreCase(name).orElseThrow());
         }
         return tags;
+    }
+
+    /**
+     * 이름으로 찾는다. 대소문자는 가리지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Tag> findByName(String name) {
+        return tagRepository.findByNameIgnoreCase(name);
     }
 
     // 앞의 #을 떼고, 대소문자만 다른 이름은 처음 것만 남긴다

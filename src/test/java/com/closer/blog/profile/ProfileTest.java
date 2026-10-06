@@ -212,8 +212,9 @@ class ProfileTest {
                 .andExpect(jsonPath("$.items[0].username").value("kim"));
         fetch(kimToken, "/api/v1/users?q=영희")
                 .andExpect(jsonPath("$.items[0].username").value("lee"));
-        // %는 글자로 찾는다. 모두 걸리지 않는다
-        fetch(kimToken, "/api/v1/users?q=%25").andExpect(jsonPath("$.items.length()").value(0));
+        // %는 글자로 찾는다. 모두 걸리지 않는다. URL에 %를 직접 쓰면 MockMvc가 다시 인코딩하므로 param()으로 보낸다
+        mockMvc.perform(get("/api/v1/users").param("q", "%").header(HttpHeaders.AUTHORIZATION, "Bearer " + kimToken))
+                .andExpect(jsonPath("$.items.length()").value(0));
     }
 
     @Test
