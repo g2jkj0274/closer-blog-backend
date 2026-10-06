@@ -82,6 +82,22 @@ public class UserService {
     }
 
     /**
+     * 토큰의 사용자 id로 찾는다. 탈퇴가 없으므로 보통은 늘 있다.
+     */
+    @Transactional(readOnly = true)
+    public User getById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "없는 사용자입니다."));
+    }
+
+    @Transactional
+    public User updateProfile(Long userId, String displayName, String bio, String contact) {
+        User user = getById(userId);
+        user.updateProfile(displayName, bio, contact, clock.instant());
+        return user;
+    }
+
+    /**
      * 아이디로 사용자를 찾는다. 대소문자는 가리지 않는다. 없으면 404다.
      */
     @Transactional(readOnly = true)

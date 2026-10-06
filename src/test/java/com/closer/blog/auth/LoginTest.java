@@ -99,9 +99,10 @@ public class LoginTest {
         String body = login("kim", "password1", false).andReturn().getResponse().getContentAsString();
         String accessToken = body.replaceAll(".*\"accessToken\":\"([^\"]+)\".*", "$1");
 
-        // 아직 /me 컨트롤러가 없으므로 보안을 통과하면 404다
+        // 보안을 통과하면 토큰의 사용자 정보가 나온다
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("kim"));
     }
 
     @Test

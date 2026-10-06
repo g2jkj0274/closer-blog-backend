@@ -12,6 +12,9 @@ public final class PostVisibility {
     // 네이티브 쿼리용. search, profile 패키지가 쓴다
     public static final String READABLE_SQL = "p.deleted_at IS NULL AND (p.owner_id = :viewerId OR p.mode = 644)";
 
+    // 보는 사람과 상관없는 공개 글. 사람 목록의 글 수처럼 누가 봐도 같아야 하는 값에 쓴다
+    public static final String PUBLIC_SQL = "p.deleted_at IS NULL AND p.mode = 644";
+
     private PostVisibility() {
     }
 

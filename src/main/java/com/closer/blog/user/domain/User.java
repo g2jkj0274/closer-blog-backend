@@ -87,6 +87,16 @@ public class User {
         }
     }
 
+    /**
+     * config 화면의 저장. 세 값을 모두 받아 그대로 바꾼다. 검증은 요청 DTO가 한다.
+     */
+    public void updateProfile(String displayName, String bio, String contact, Instant now) {
+        this.displayName = displayName;
+        this.bio = bio;
+        this.contact = contact;
+        this.updatedAt = now;
+    }
+
     public void recordLoginSuccess() {
         failedLoginCount = 0;
         lockedUntil = null;

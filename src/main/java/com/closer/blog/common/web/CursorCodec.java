@@ -48,6 +48,15 @@ public final class CursorCodec {
 
     public record Cursor(String sortKey, long id) {
 
+        public long sortKeyAsLong() {
+            try {
+                return Long.parseLong(sortKey);
+            }
+            catch (NumberFormatException ex) {
+                throw invalid();
+            }
+        }
+
         public Instant sortKeyAsInstant() {
             try {
                 return Instant.parse(sortKey);
