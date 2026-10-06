@@ -13,6 +13,7 @@ import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
 import com.closer.blog.user.domain.User;
 import com.closer.blog.user.service.UserService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -20,6 +21,7 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -70,4 +72,37 @@ public class AuthController {
                 .body(LoginResponse.of(result.accessToken(), result.user()));
     }
 
+    @PostMapping("/refresh")
+    ResponseEntity<LoginResponse> refresh(
+            @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshToken,
+            HttpServletResponse response) {
+        try {
+            if (refreshToken == null) {
+                throw new ApiException(ErrorCode.UNAUTHORIZED);
+            }
+            LoginResult result = authService.refresh(refreshToken);
+            ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
+            // 유예 시간 안의 재요청이면 새 토큰이 없다. 쿠키는 건드리지 않는다
+            if (result.refreshToken() != null) {
+                builder.header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(result.refreshToken()).toString());
+            }
+            return builder.body(LoginResponse.of(result.accessToken(), result.user()));
+        } catch (ApiException ex) {
+            // 쓸 수 없는 쿠키는 브라우저에서도 지운다. 응답 본문은 GlobalExceptionHandler가 만든다
+            response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString());
+            throw ex;
+        }
+    }
+
+    @PostMapping("/logout")
+    ResponseEntity<Void> logout(
+            @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshToken) {
+        if (refreshToken != null) {
+            authService.logout(refreshToken);
+        }
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString())
+                .build();
+
+    }
 }

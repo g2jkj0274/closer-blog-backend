@@ -33,4 +33,18 @@ public class RefreshTokenCookieFactory {
         return builder.build();
     }
 
+    /**
+     * 브라우저에서 쿠키를 지운다. 이름, Path가 같고 Max-Age=0이어야 지워진다.
+     */
+    public ResponseCookie clear() {
+        return baseCookie("").maxAge(0).build();
+    }
+
+    private ResponseCookie.ResponseCookieBuilder baseCookie(String value) {
+        return ResponseCookie.from(COOKIE_NAME, value)
+                .httpOnly(true)
+                .secure(properties.cookieSecure())
+                .sameSite("Lax")
+                .path(COOKIE_PATH);
+    }
 }

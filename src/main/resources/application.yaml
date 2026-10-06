@@ -21,3 +21,4 @@ app:
       persistent-ttl: 30d   # 로그인 유지
       session-ttl: 24h      # 로그인 유지 안 함 (쿠키는 브라우저를 닫으면 사라짐)
       cookie-secure: true
+      rotation-grace: 30s   # 다른 탭이 방금 회전한 옛 토큰을 받아 주는 시간

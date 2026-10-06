@@ -5,10 +5,11 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 리프레시 토큰 수명과 쿠키 설정 (docs/api-spec.md 1.2절).
+ * 리프레시 토큰 수명과 쿠키 설정 (docs/api-spec.md 1.2절, docs/erd.md 4.2절).
  */
 @ConfigurationProperties("app.auth.refresh-token")
-public record RefreshTokenProperties(Duration persistentTtl, Duration sessionTtl, Boolean cookieSecure) {
+public record RefreshTokenProperties(Duration persistentTtl, Duration sessionTtl, Boolean cookieSecure,
+                                     Duration rotationGrace) {
 
     public RefreshTokenProperties {
         if (persistentTtl == null) {
@@ -19,6 +20,9 @@ public record RefreshTokenProperties(Duration persistentTtl, Duration sessionTtl
         }
         if (cookieSecure == null) {
             cookieSecure = true;
+        }
+        if (rotationGrace == null) {
+            rotationGrace = Duration.ofSeconds(30);
         }
     }
 

@@ -3,6 +3,7 @@ package com.closer.blog.auth.service;
 import com.closer.blog.auth.dto.LoginRequest;
 import com.closer.blog.auth.dto.SignupRequest;
 import com.closer.blog.auth.service.RefreshTokenService.IssuedRefreshToken;
+import com.closer.blog.auth.service.RefreshTokenService.Rotation;
 import com.closer.blog.common.security.JwtProvider;
 import com.closer.blog.common.security.JwtProvider.AccessToken;
 import com.closer.blog.folder.service.FolderService;
@@ -46,6 +47,20 @@ public class AuthService {
         return new LoginResult(user, accessToken, refreshToken);
     }
 
+    public LoginResult refresh(String rawRefreshToken) {
+        Rotation rotation = refreshTokenService.rotate(rawRefreshToken);
+        User user = rotation.user();
+        AccessToken accessToken = jwtProvider.issue(user.getId(), user.getUsername());
+        return new LoginResult(user, accessToken, rotation.newToken());
+    }
+
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.revokeFamily(rawRefreshToken);
+    }
+
+    /**
+     * refreshToken은 유예 시간 안의 재요청(refresh)이면 null이다. 그때는 쿠키를 다시 주지 않는다.
+     */
     public record LoginResult(User user, AccessToken accessToken, IssuedRefreshToken refreshToken) {
     }
 }
