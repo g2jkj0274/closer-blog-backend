@@ -1,6 +1,8 @@
 package com.closer.blog.folder.service;
 
 import java.time.Clock;
+import java.util.List;
+import java.util.Optional;
 
 import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
@@ -69,12 +71,38 @@ public class FolderService {
     }
 
     /**
+     * 폴더는 로그인한 누구나 볼 수 있다. 없으면 404다.
+     */
+    @Transactional(readOnly = true)
+    public Folder get(Long folderId) {
+        return folderRepository.findById(folderId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "없는 폴더입니다."));
+    }
+
+    /**
+     * 홈 기준 경로로 찾는다. 홈은 "".
+     */
+    @Transactional(readOnly = true)
+    public Optional<Folder> findByPath(Long ownerId, String path) {
+        return folderRepository.findByOwnerIdAndPath(ownerId, path);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Folder> findChildren(Long parentId) {
+        return folderRepository.findByParentId(parentId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Folder> findAllOf(Long ownerId) {
+        return folderRepository.findByOwnerId(ownerId);
+    }
+
+    /**
      * 내 폴더를 찾는다. 없으면 404, 남의 것이면 403. 폴더는 누구나 볼 수 있으므로 존재를 숨기지 않는다
      * (docs/api-spec.md 1.3절). 글을 쓰거나 옮길 때 post 패키지도 쓴다.
      */
     public Folder findOwnedFolder(Long userId, Long folderId, String forbiddenMessage) {
-        Folder folder = folderRepository.findById(folderId)
-                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "없는 폴더입니다."));
+        Folder folder = get(folderId);
         if (!folder.isOwnedBy(userId)) {
             throw new ApiException(ErrorCode.FORBIDDEN, forbiddenMessage);
         }

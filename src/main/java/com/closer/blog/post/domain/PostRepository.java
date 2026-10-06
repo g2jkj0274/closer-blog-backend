@@ -2,6 +2,7 @@ package com.closer.blog.post.domain;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +14,37 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     // 휴지통에 있는 글은 이름 중복으로 치지 않는다 (docs/erd.md 4.4절)
     boolean existsByFolderIdAndFileNameAndDeletedAtIsNull(Long folderId, String fileName);
+
+    // 경로로 찾은 살아 있는 글 (GET /fs). 읽을 수 있는지는 PostAccessPolicy가 본다
+    Optional<Post> findByFolderIdAndFileNameAndDeletedAtIsNull(Long folderId, String fileName);
+
+    // 폴더 안 글, 이름순 첫 페이지
+    @Query("select p from Post p where p.folder.id = :folderId and " + PostVisibility.READABLE_JPQL
+            + " order by p.fileName asc, p.id asc")
+    List<Post> findReadableInFolderByName(@Param("folderId") Long folderId, @Param("viewerId") Long viewerId,
+                                          Limit limit);
+
+    // 폴더 안 글, 이름순 다음 페이지
+    @Query("select p from Post p where p.folder.id = :folderId and " + PostVisibility.READABLE_JPQL
+            + " and (p.fileName > :fileName or (p.fileName = :fileName and p.id > :id))"
+            + " order by p.fileName asc, p.id asc")
+    List<Post> findReadableInFolderByNameAfter(@Param("folderId") Long folderId, @Param("viewerId") Long viewerId,
+                                               @Param("fileName") String fileName, @Param("id") Long id,
+                                               Limit limit);
+
+    // 폴더 안 글, 최근 수정순 첫 페이지
+    @Query("select p from Post p where p.folder.id = :folderId and " + PostVisibility.READABLE_JPQL
+            + " order by p.updatedAt desc, p.id desc")
+    List<Post> findReadableInFolderByUpdated(@Param("folderId") Long folderId, @Param("viewerId") Long viewerId,
+                                             Limit limit);
+
+    // 폴더 안 글, 최근 수정순 다음 페이지
+    @Query("select p from Post p where p.folder.id = :folderId and " + PostVisibility.READABLE_JPQL
+            + " and (p.updatedAt < :updatedAt or (p.updatedAt = :updatedAt and p.id < :id))"
+            + " order by p.updatedAt desc, p.id desc")
+    List<Post> findReadableInFolderByUpdatedAfter(@Param("folderId") Long folderId, @Param("viewerId") Long viewerId,
+                                                  @Param("updatedAt") Instant updatedAt, @Param("id") Long id,
+                                                  Limit limit);
 
     // 휴지통 첫 페이지. 최근에 지운 것부터. 경로를 만들려고 폴더를 함께 읽는다
     @Query("""

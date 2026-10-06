@@ -2,6 +2,7 @@ package com.closer.blog.post.service;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.function.Function;
 
 import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
@@ -115,6 +116,42 @@ public class PostService {
             postRepository.flush();
         }
         return PostDetail.of(post, userId);
+    }
+
+    /**
+     * 경로로 찾은 글 (GET /fs). 없거나 읽을 수 없으면 404다.
+     */
+    @Transactional(readOnly = true)
+    public PostDetail getInFolder(Long viewerId, Long folderId, String fileName) {
+        Post post = postRepository.findByFolderIdAndFileNameAndDeletedAtIsNull(folderId, fileName)
+                .orElseThrow(accessPolicy::notFound);
+        accessPolicy.checkReadable(post, viewerId);
+        return PostDetail.of(post, viewerId);
+    }
+
+    /**
+     * 폴더 바로 아래의 글. 보는 사람이 읽을 수 있는 것만. byUpdated면 최근 수정순, 아니면 이름순.
+     */
+    @Transactional(readOnly = true)
+    public CursorPage<PostSummary> listInFolder(Long viewerId, Long folderId, boolean byUpdated, String cursor,
+                                                int size) {
+        Limit limit = Limit.of(size + 1);
+        CursorCodec.Cursor after = (cursor == null) ? null : CursorCodec.decode(cursor);
+        List<Post> rows;
+        if (byUpdated) {
+            rows = (after == null) ? postRepository.findReadableInFolderByUpdated(folderId, viewerId, limit)
+                    : postRepository.findReadableInFolderByUpdatedAfter(folderId, viewerId,
+                            after.sortKeyAsInstant(), after.id(), limit);
+        }
+        else {
+            rows = (after == null) ? postRepository.findReadableInFolderByName(folderId, viewerId, limit)
+                    : postRepository.findReadableInFolderByNameAfter(folderId, viewerId, after.sortKey(),
+                            after.id(), limit);
+        }
+        Function<Post, String> cursorOf = byUpdated
+                ? post -> CursorCodec.encode(post.getUpdatedAt().toString(), post.getId())
+                : post -> CursorCodec.encode(post.getFileName(), post.getId());
+        return CursorPage.of(rows, size, post -> PostSummary.of(post, viewerId), cursorOf);
     }
 
     /**
