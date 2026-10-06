@@ -32,6 +32,15 @@ public class PostAccessPolicy {
         }
     }
 
+    /**
+     * 휴지통의 글은 소유자만 다룬다. 휴지통에 없거나 남의 것이면 404다.
+     */
+    public void checkInTrashOf(Post post, Long userId) {
+        if (!post.isDeleted() || !post.isOwnedBy(userId)) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "휴지통에 없는 글입니다.");
+        }
+    }
+
     public ApiException notFound() {
         return new ApiException(ErrorCode.NOT_FOUND, "없는 글입니다.");
     }

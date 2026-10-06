@@ -1,5 +1,6 @@
 package com.closer.blog.post.domain;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -36,6 +37,9 @@ public class Post {
     public static final int MODE_PUBLIC = 644;
 
     public static final int MODE_PRIVATE = 600;
+
+    // 휴지통에 이만큼 둔 뒤 예약 작업이 지운다 (docs/erd.md 7절)
+    public static final Duration TRASH_RETENTION = Duration.ofDays(30);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -185,6 +189,17 @@ public class Post {
             }
         }
         return true;
+    }
+
+    /**
+     * rm. 폴더와 이름은 그대로 두므로 복구하면 원래 자리로 간다.
+     */
+    public void moveToTrash(Instant now) {
+        this.deletedAt = now;
+    }
+
+    public void restore() {
+        this.deletedAt = null;
     }
 
     /**

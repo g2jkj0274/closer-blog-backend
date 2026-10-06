@@ -10,6 +10,7 @@ import com.closer.blog.post.service.PostService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,6 +41,13 @@ public class PostController {
     PostDetail update(@CurrentUserId Long userId, @PathVariable Long id,
                       @Valid @RequestBody UpdatePostRequest request) {
         return postService.update(userId, id, request);
+    }
+
+    // rm. 휴지통으로 보낸다
+    @DeleteMapping("/{id}")
+    ResponseEntity<Void> delete(@CurrentUserId Long userId, @PathVariable Long id) {
+        postService.moveToTrash(userId, id);
+        return ResponseEntity.noContent().build();
     }
 
 }

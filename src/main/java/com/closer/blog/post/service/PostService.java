@@ -5,21 +5,25 @@ import java.util.List;
 
 import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
+import com.closer.blog.common.web.CursorCodec;
+import com.closer.blog.common.web.CursorPage;
 import com.closer.blog.folder.domain.Folder;
 import com.closer.blog.folder.service.FolderService;
 import com.closer.blog.post.domain.Post;
 import com.closer.blog.post.domain.PostRepository;
 import com.closer.blog.post.dto.CreatePostRequest;
 import com.closer.blog.post.dto.PostDetail;
+import com.closer.blog.post.dto.TrashItem;
 import com.closer.blog.post.dto.UpdatePostRequest;
 import com.closer.blog.tag.domain.Tag;
 import com.closer.blog.tag.service.TagService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 글 만들기·읽기·고치기. PostDetail은 지연 로딩 연관(폴더, 소유자, 태그)을 읽으므로 트랜잭션 안에서 만들어 돌려준다.
+ * 글 만들기·읽기·고치기와 휴지통. PostDetail은 지연 로딩 연관(폴더, 소유자, 태그)을 읽으므로 트랜잭션 안에서 만들어 돌려준다.
  */
 @Service
 @RequiredArgsConstructor
@@ -106,6 +110,69 @@ public class PostService {
             postRepository.flush();
         }
         return PostDetail.of(post, userId);
+    }
+
+    /**
+     * rm. 휴지통으로 보낸다.
+     */
+    @Transactional
+    public void moveToTrash(Long userId, Long postId) {
+        Post post = findPost(postId);
+        accessPolicy.checkWritable(post, userId);
+        post.moveToTrash(clock.instant());
+    }
+
+    /**
+     * 내 휴지통. 최근에 지운 것부터. 다음 페이지가 있는지 보려고 하나 더 읽는다.
+     */
+    @Transactional(readOnly = true)
+    public CursorPage<TrashItem> listTrash(Long userId, String cursor, int size) {
+        Limit limit = Limit.of(size + 1);
+        List<Post> rows;
+        if (cursor == null) {
+            rows = postRepository.findTrash(userId, limit);
+        }
+        else {
+            CursorCodec.Cursor after = CursorCodec.decode(cursor);
+            rows = postRepository.findTrashAfter(userId, after.sortKeyAsInstant(), after.id(), limit);
+        }
+        return CursorPage.of(rows, size, TrashItem::of,
+                post -> CursorCodec.encode(post.getDeletedAt().toString(), post.getId()));
+    }
+
+    /**
+     * 원래 폴더로 되돌린다. 그 자리에 같은 이름의 글이 생겨 있으면 409이고, 새 이름을 받아 다시 복구한다.
+     */
+    @Transactional
+    public PostDetail restore(Long userId, Long postId, String newFileName) {
+        Post post = findPost(postId);
+        accessPolicy.checkInTrashOf(post, userId);
+        String fileName = (newFileName == null) ? post.getFileName() : newFileName;
+        // update()와 같은 까닭으로 검사를 먼저 하고 글을 고친다
+        checkNameAvailable(post.getFolder(), fileName);
+
+        post.restore();
+        post.rename(fileName);
+        postRepository.flush();
+        return PostDetail.of(post, userId);
+    }
+
+    /**
+     * 휴지통에서 rm -f. 되돌릴 수 없다.
+     */
+    @Transactional
+    public void purge(Long userId, Long postId) {
+        Post post = findPost(postId);
+        accessPolicy.checkInTrashOf(post, userId);
+        postRepository.delete(post);
+    }
+
+    /**
+     * 휴지통에 30일 넘게 있던 글을 모두 지운다. 지운 개수를 돌려준다.
+     */
+    @Transactional
+    public int purgeExpired() {
+        return postRepository.deleteTrashedBefore(clock.instant().minus(Post.TRASH_RETENTION));
     }
 
     private Post findPost(Long postId) {
