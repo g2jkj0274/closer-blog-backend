@@ -1,10 +1,12 @@
 package com.closer.blog.profile.controller;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.common.web.CursorPage;
 import com.closer.blog.profile.dto.UserCard;
 import com.closer.blog.profile.dto.UserProfile;
 import com.closer.blog.profile.service.ProfileService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 사람 목록과 프로필. 그 사람의 글 목록(/users/{username}/posts)은 post, 트리는 fs 패키지가 맡는다.
  */
+@Tag(name = ApiTags.PROFILE)
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor

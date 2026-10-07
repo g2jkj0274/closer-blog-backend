@@ -1,11 +1,13 @@
 package com.closer.blog.post.controller;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.common.web.CursorPage;
 import com.closer.blog.post.dto.PostDetail;
 import com.closer.blog.post.dto.RestorePostRequest;
 import com.closer.blog.post.dto.TrashItem;
 import com.closer.blog.post.service.PostService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = ApiTags.TRASH)
 @RestController
 @RequestMapping("/api/v1/trash")
 @RequiredArgsConstructor

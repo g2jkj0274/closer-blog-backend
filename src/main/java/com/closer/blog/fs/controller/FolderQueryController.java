@@ -1,9 +1,11 @@
 package com.closer.blog.fs.controller;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.fs.dto.FolderListing;
 import com.closer.blog.fs.dto.FolderTree;
 import com.closer.blog.fs.service.FsService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 글 정보가 함께 나가는 폴더 조회. 폴더 만들기·지우기는 folder 패키지의 FolderController가 맡는다.
  */
+@Tag(name = ApiTags.FOLDER)
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor

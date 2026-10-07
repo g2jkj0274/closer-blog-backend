@@ -1,10 +1,12 @@
 package com.closer.blog.profile.controller;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.profile.dto.MeResponse;
 import com.closer.blog.profile.dto.MeSummary;
 import com.closer.blog.profile.dto.UpdateProfileRequest;
 import com.closer.blog.profile.service.ProfileService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = ApiTags.PROFILE)
 @RestController
 @RequestMapping("/api/v1/me")
 @RequiredArgsConstructor

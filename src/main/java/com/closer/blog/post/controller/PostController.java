@@ -2,11 +2,13 @@ package com.closer.blog.post.controller;
 
 import java.net.URI;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.post.dto.CreatePostRequest;
 import com.closer.blog.post.dto.PostDetail;
 import com.closer.blog.post.dto.UpdatePostRequest;
 import com.closer.blog.post.service.PostService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = ApiTags.POST)
 @RestController
 @RequestMapping("/api/v1/posts")
 @RequiredArgsConstructor

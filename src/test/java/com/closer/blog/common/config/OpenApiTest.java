@@ -1,8 +1,13 @@
 package com.closer.blog.common.config;
 
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.in;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 
 import com.closer.blog.TestcontainersConfiguration;
 import org.junit.jupiter.api.Nested;
@@ -39,6 +44,19 @@ class OpenApiTest {
                     .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").isEmpty())
                     // 로그인한 사용자 id(@CurrentUserId)는 요청 파라미터가 아니다
                     .andExpect(jsonPath("$.paths['/api/v1/me'].get.parameters").doesNotExist());
+        }
+
+        @Test
+        void everyApiHasAKoreanTag() throws Exception {
+            List<String> tags = List.of(ApiTags.AUTH, ApiTags.PROFILE, ApiTags.FOLDER, ApiTags.POST, ApiTags.TRASH,
+                    ApiTags.SEARCH);
+            mockMvc.perform(get("/v3/api-docs"))
+                    // Swagger UI에 보이는 순서
+                    .andExpect(jsonPath("$.tags[*].name", contains(tags.toArray())))
+                    // 모든 API가 위 태그 중 하나에 들어 있다. @Tag를 빠뜨린 컨트롤러는 xxx-controller 태그가 붙어 여기서 걸린다
+                    .andExpect(jsonPath("$.paths.*.*.tags[*]", everyItem(in(tags))))
+                    .andExpect(jsonPath("$.paths['/api/v1/trash'].get.tags[0]").value(ApiTags.TRASH))
+                    .andExpect(jsonPath("$.paths['/api/v1/users/{username}/posts'].get.tags[0]").value(ApiTags.POST));
         }
 
         @Test

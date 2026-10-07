@@ -2,11 +2,13 @@ package com.closer.blog.folder.controller;
 
 import java.net.URI;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.folder.domain.Folder;
 import com.closer.blog.folder.dto.CreateFolderRequest;
 import com.closer.blog.folder.dto.FolderSummary;
 import com.closer.blog.folder.service.FolderService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = ApiTags.FOLDER)
 @RestController
 @RequestMapping("/api/v1/folders")
 @RequiredArgsConstructor

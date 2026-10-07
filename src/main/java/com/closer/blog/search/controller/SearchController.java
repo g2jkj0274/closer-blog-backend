@@ -1,9 +1,11 @@
 package com.closer.blog.search.controller;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.search.dto.ContentSearchResult;
 import com.closer.blog.search.dto.NameSearchResult;
 import com.closer.blog.search.service.SearchService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = ApiTags.SEARCH)
 @RestController
 @RequestMapping("/api/v1/search")
 @RequiredArgsConstructor

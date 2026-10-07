@@ -9,10 +9,12 @@ import com.closer.blog.auth.dto.SignupRequest;
 import com.closer.blog.auth.dto.SignupResponse;
 import com.closer.blog.auth.service.AuthService;
 import com.closer.blog.auth.service.AuthService.LoginResult;
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
 import com.closer.blog.user.domain.User;
 import com.closer.blog.user.service.UserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = ApiTags.AUTH)
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor

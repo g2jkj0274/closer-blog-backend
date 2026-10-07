@@ -1,14 +1,17 @@
 package com.closer.blog.fs.controller;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.fs.dto.FsResponse;
 import com.closer.blog.fs.service.FsService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = ApiTags.FOLDER)
 @RestController
 @RequestMapping("/api/v1/fs")
 @RequiredArgsConstructor

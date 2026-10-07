@@ -1,9 +1,11 @@
 package com.closer.blog.search.controller;
 
+import com.closer.blog.common.config.ApiTags;
 import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.search.dto.TagPosts;
 import com.closer.blog.search.dto.TagSuggestions;
 import com.closer.blog.search.service.SearchService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 태그 조회. 태그를 만들고 다는 일은 글을 저장할 때 post·tag 패키지가 한다.
  */
+@Tag(name = ApiTags.SEARCH)
 @RestController
 @RequestMapping("/api/v1/tags")
 @RequiredArgsConstructor
