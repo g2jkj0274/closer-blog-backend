@@ -1,0 +1,45 @@
+# 푸시와 PR마다 빌드하고 테스트를 돌린다 (docs/tech-stack.md 2절 "CI")
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 같은 브랜치에 새 커밋이 오면 앞서 돌던 실행을 멈춘다
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Gradle 배포판과 의존성을 캐시한다
+      - uses: gradle/actions/setup-gradle@v6
+
+      # 테스트가 Testcontainers로 PostgreSQL을 띄운다. ubuntu 러너에는 Docker가 들어 있다
+      - name: Build and test
+        run: ./gradlew build
+
+      # 실패하면 테스트 보고서를 Actions 화면에서 내려받을 수 있게 올린다
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-report
+          path: build/reports/tests/test
+          retention-days: 7
