@@ -6,6 +6,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 
+import com.closer.blog.common.error.ApiException;
+import com.closer.blog.common.error.ErrorCode;
 import com.closer.blog.common.web.CursorCodec;
 import com.closer.blog.common.web.CursorPage;
 import com.closer.blog.profile.dto.MeResponse;
@@ -63,7 +65,8 @@ public class ProfileService {
     /**
      * 사람 목록. byJoined면 최근 가입순, 아니면 공개 글 많은 순.
      */
-    public CursorPage<UserCard> list(String q, boolean byJoined, String cursor, int size) {
+    public CursorPage<UserCard> list(String rawQ, boolean byJoined, String cursor, int size) {
+        String q = query(rawQ);
         CursorCodec.Cursor after = (cursor == null) ? null : CursorCodec.decode(cursor);
         List<UserRow> rows = queryRepository.findUsers(q, byJoined, after, size + 1);
         return CursorPage.of(rows, size, UserCard::of, row -> CursorCodec.encode(
@@ -73,6 +76,18 @@ public class ProfileService {
     private OwnerStats statsOf(User owner, Long viewerId) {
         Instant startOfToday = LocalDate.now(clock.withZone(SEOUL)).atStartOfDay(SEOUL).toInstant();
         return queryRepository.statsOf(owner.getId(), viewerId, startOfToday);
+    }
+
+    // 검색 API들과 같이 앞뒤 공백을 자른 뒤 길이를 본다. 없으면 모두 보여 준다
+    private static String query(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String q = raw.strip();
+        if (q.isEmpty() || q.length() > 20) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "q는 앞뒤 공백을 자른 뒤 1~20자입니다.");
+        }
+        return q;
     }
 
 }

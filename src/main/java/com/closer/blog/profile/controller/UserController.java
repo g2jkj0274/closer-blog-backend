@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,10 +30,9 @@ public class UserController {
     private final ProfileService profileService;
 
     @Operation(summary = "사람 목록·찾기 (ls /users, find @아이디)",
-            description = "글 수는 공개 글 수다.")
+            description = "q는 앞뒤 공백을 자른 뒤 1~20자다. 글 수는 공개 글 수다.")
     @GetMapping
-    CursorPage<UserCard> list(@RequestParam(required = false)
-                              @Size(min = 1, max = 20, message = "q는 1~20자입니다.") String q,
+    CursorPage<UserCard> list(@RequestParam(required = false) String q,
                               @RequestParam(defaultValue = "posts")
                               @Pattern(regexp = "posts|joined", message = "sort는 posts 또는 joined입니다.") String sort,
                               @RequestParam(required = false) String cursor,

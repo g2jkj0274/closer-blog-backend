@@ -218,6 +218,22 @@ class ProfileTest {
     }
 
     @Test
+    void userQueryIsStrippedLikeSearchQueries() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("q", "  KI  ").header(HttpHeaders.AUTHORIZATION, "Bearer " + kimToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].username").value("kim"));
+        // 자른 뒤 20자면 된다
+        mockMvc.perform(get("/api/v1/users").param("q", " " + "a".repeat(20) + " ")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + kimToken))
+                .andExpect(status().isOk());
+        // 자르면 빈 검색어다
+        mockMvc.perform(get("/api/v1/users").param("q", "   ").header(HttpHeaders.AUTHORIZATION, "Bearer " + kimToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void badUserListParams() throws Exception {
         fetch(kimToken, "/api/v1/users?q=" + "a".repeat(21)).andExpect(status().isBadRequest());
         fetch(kimToken, "/api/v1/users?sort=name").andExpect(status().isBadRequest());
