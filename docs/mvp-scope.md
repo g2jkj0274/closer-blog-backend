@@ -75,9 +75,9 @@
 11. `cat pointr.md` 같은 오타는 "없는 경로" 화면으로 간다.
 12. `logout` 후에는 글 주소가 다시 로그인으로 간다.
 
-## 5. 백엔드 설계 초안
+## 5. 백엔드 설계
 
-이 저장소는 REST API 서버다. 지금은 Spring Boot 4.1.1(Java 21)에 `webmvc`만 들어 있다.
+이 저장소는 REST API 서버다(Spring Boot 4.1.1, Java 21). 아래 API와 작업 순서 1~5단계를 모두 구현했다(2026-10-07). 진행 상황은 [작업 목록](task-list.md)에 있다.
 
 ### 전제
 
@@ -114,6 +114,8 @@
 | 검색·태그 | `GET /search/content`, `GET /search/names`, `GET /tags`, `GET /tags/{name}/posts` |
 
 ### 작업 순서
+
+1~5단계를 모두 마쳤고, 12개 시나리오를 API로 잇는 테스트가 `MvpScenarioTest`다. 화면에서의 확인은 프런트가 생긴 뒤에 한다.
 
 | 단계 | 내용 | 끝나면 통과하는 시나리오 |
 |---|---|---|

@@ -1,6 +1,7 @@
 # c1oser.dev 기술 스택 결정
 
-- 상태: 제안 (2026-09-30). 5절의 네 가지는 확인이 필요하다.
+- 상태: 백엔드 적용 (2026-10-07). 처음 제안은 2026-09-30이다. 5절의 네 가지는 아직 확인이 필요하다.
+- 상태 칸: **기존**은 저장소에 원래 있던 것, **적용**은 구현에 쓰고 있는 것, **확정**은 정했지만 아직 만들지 않은 것, **제안**과 **확인 필요**는 아직 정하지 않은 것이다.
 - 함께 읽을 문서: [기능 명세서](functional-spec.md), [MVP 범위](mvp-scope.md), [DB 설계](erd.md), [API 명세서](api-spec.md)
 - 범위: MVP(P0)를 만드는 데 필요한 스택. P1 이후에 필요한 것은 4절에 따로 적었다.
 
@@ -19,18 +20,18 @@
 | 언어·런타임 | Java 21 | 기존 |
 | 프레임워크 | Spring Boot 4.1.1, Spring MVC | 기존 |
 | 빌드 | Gradle 9.7.1 (Wrapper, Groovy DSL) | 기존 |
-| 데이터베이스 | PostgreSQL 18 | 확정 |
-| 데이터 접근 | Spring Data JPA (Hibernate 7.4) | 제안 |
-| 스키마 관리 | Flyway | 제안 |
-| 인증 | Spring Security 7.1. JWT 액세스 토큰 + DB에 저장하는 리프레시 토큰 | 확정 (세부는 제안) |
-| 비밀번호 | BCrypt | 제안 |
-| 입력 검증 | Bean Validation | 제안 |
-| 검색 | PostgreSQL `pg_trgm` 인덱스 | 제안 |
-| 예약 작업 | Spring `@Scheduled` | 제안 |
-| API 문서 | springdoc-openapi 3.1 (Swagger UI) | 제안 |
-| 테스트 | JUnit 6, MockMvc, Testcontainers 2.0 | 제안 |
-| 반복 코드 생성 | Lombok. 허용한 어노테이션만 쓴다 (3.12절) | 확정 |
-| 상태 확인·메트릭 | Spring Boot Actuator + Micrometer Prometheus 레지스트리 | 확정 |
+| 데이터베이스 | PostgreSQL 18 | 적용 |
+| 데이터 접근 | Spring Data JPA (Hibernate 7.4) | 적용 |
+| 스키마 관리 | Flyway | 적용 |
+| 인증 | Spring Security 7.1. JWT 액세스 토큰 + DB에 저장하는 리프레시 토큰 | 적용 |
+| 비밀번호 | BCrypt | 적용 |
+| 입력 검증 | Bean Validation | 적용 |
+| 검색 | PostgreSQL `pg_trgm` 인덱스 | 적용 |
+| 예약 작업 | Spring `@Scheduled` | 적용 |
+| API 문서 | springdoc-openapi 3.1 (Swagger UI) | 적용 |
+| 테스트 | JUnit 6, MockMvc, Testcontainers 2.0, ArchUnit 1.5 | 적용 |
+| 반복 코드 생성 | Lombok. 허용한 어노테이션만 쓴다 (3.12절) | 적용 |
+| 상태 확인·메트릭 | Spring Boot Actuator + Micrometer Prometheus 레지스트리 | 적용 |
 
 ### 프런트엔드 (별도 저장소)
 
@@ -52,12 +53,12 @@
 
 | 영역 | 결정 | 상태 |
 |---|---|---|
-| 로컬 DB | Docker Compose. Spring Boot의 Docker Compose 지원으로 앱 실행 시 함께 뜬다 | 제안 |
-| 설정 | `application.yaml` + 프로필(`local`, `prod`). 비밀 값은 환경 변수 | 제안 |
-| CI | GitHub Actions. 푸시와 PR마다 빌드와 테스트 | 제안 |
-| 모니터링 | Prometheus(수집) + Grafana(대시보드) | 확정 |
-| 부하 테스트 | k6 | 확정 |
-| 백엔드 배포 | Docker 이미지 | 제안 |
+| 로컬 DB | Docker Compose. Spring Boot의 Docker Compose 지원으로 앱 실행 시 함께 뜬다 | 적용 |
+| 설정 | `application.yaml`(로컬은 기본 프로필) + `prod` 프로필. 운영 비밀 값은 환경 변수로 받고 없으면 앱이 뜨지 않는다. `local` 프로필 파일은 두지 않았다 | 적용 |
+| CI | GitHub Actions. `main` 푸시와 PR마다 빌드·테스트, Docker 이미지를 띄워 health 확인 | 적용 |
+| 모니터링 | Prometheus(수집) + Grafana(대시보드). 로컬용 `compose.monitoring.yaml` | 적용 |
+| 부하 테스트 | k6 | 확정 (아직 만들지 않음) |
+| 백엔드 배포 | Docker 이미지 (`Dockerfile`). 레지스트리에 올리는 것은 호스팅이 정해진 뒤에 한다 | 적용 |
 | 호스팅 | 정하지 않음 | 확인 필요 |
 | 도메인 구성 | 프런트 `c1oser.dev`, API `api.c1oser.dev` | 확인 필요 |
 
@@ -145,7 +146,9 @@ Liquibase는 XML·YAML 형식이 필요 없어서 고르지 않았다.
 
 - 단위 테스트: JUnit 6 (Spring Boot 관리 버전).
 - API 테스트: MockMvc로 요청과 권한을 검증한다.
-- DB 테스트: Testcontainers로 실제 PostgreSQL을 띄운다. `pg_trgm`, 부분 고유 인덱스, 복합 외래 키, 정규식 `CHECK` 제약은 H2에서 똑같이 동작하지 않으므로 H2를 쓰지 않는다. 한글 검색어가 trigram 인덱스를 쓰는지도 이 테스트에서 `EXPLAIN`으로 확인한다.
+- DB 테스트: Testcontainers로 실제 PostgreSQL을 띄운다. `pg_trgm`, 부분 고유 인덱스, 복합 외래 키, 정규식 `CHECK` 제약은 H2에서 똑같이 동작하지 않으므로 H2를 쓰지 않는다. 한글 검색어가 trigram 인덱스를 쓰는지도 이 테스트에서 `EXPLAIN`으로 확인한다 (`SearchTest`).
+- 구조 테스트: ArchUnit으로 [API 명세서 2절](api-spec.md#2-패키지-구조)의 패키지 의존 방향과 계층 규칙을 고정한다 (`ArchitectureTest`).
+- 흐름 테스트: [MVP 범위 4절](mvp-scope.md#4-완료-기준)의 완료 기준 시나리오를 API로 처음부터 끝까지 잇는다 (`MvpScenarioTest`).
 
 Testcontainers는 Docker가 필요하다. CI(GitHub Actions의 Ubuntu 러너)에는 Docker가 들어 있다.
 
@@ -193,7 +196,7 @@ P1의 블록 편집기에 쓸 라이브러리는 그때 정한다.
 - **합격 기준**: k6의 threshold로 적어 두면 기준을 넘을 때 실행이 실패한다. 목표 수치는 아직 없다 (5절 4번).
 - **위치**: k6 스크립트는 이 저장소의 `load-test/`에 JavaScript로 둔다. Prometheus와 Grafana는 `compose.monitoring.yaml`에 따로 정의해 필요할 때만 띄운다. 평소 개발에서 앱과 함께 뜨는 것은 PostgreSQL뿐이다.
 - **실행 시점**: 부하 테스트는 푸시마다 돌리지 않는다. 검색처럼 성능이 걸린 기능을 넣은 뒤와 배포 전에 직접 돌린다.
-- **보안**: `/actuator/prometheus`는 밖에서 열리지 않게 한다. 운영에서는 Actuator를 별도 포트로 분리하고 외부에 노출하지 않는다.
+- **보안**: `/actuator/prometheus`는 밖에서 열리지 않게 한다. 운영(`prod` 프로필)에서는 Actuator를 8081 포트로 분리했다(`application-prod.yaml`). 8081은 외부에 노출하지 않고, 공개하는 8080에는 Actuator가 없다.
 
 k6, Prometheus, Grafana는 모두 공식 Docker 이미지(`grafana/k6`, `prom/prometheus`, `grafana/grafana`)로 실행한다. PC에 따로 설치하지 않는다.
 
@@ -246,9 +249,9 @@ k6, Prometheus, Grafana는 모두 공식 Docker 이미지(`grafana/k6`, `prom/pr
 | 3 | 도메인 구성 | `c1oser.dev` + `api.c1oser.dev` | 쿠키와 CORS 설정 값이 달라진다 |
 | 4 | 성능 목표 | 없음. 예상 사용자 수와 응답 시간 목표를 받아야 한다 | k6의 합격 기준을 적을 수 없다. 측정은 할 수 있다 |
 
-## 6. 백엔드에 추가할 의존성
+## 6. 백엔드 의존성
 
-아래 이름은 모두 Maven Central에 Spring Boot 4.1.1용으로 올라와 있는 것을 확인했다 (2026-09-30).
+`build.gradle`의 의존성이다. 처음 목록은 Maven Central에 Spring Boot 4.1.1용으로 올라와 있는 것을 확인했다 (2026-09-30).
 
 ```groovy
 dependencies {
@@ -274,13 +277,14 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'org.testcontainers:testcontainers-postgresql'
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.1'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 ```
 
-- 버전을 직접 적는 것은 springdoc 하나다. 나머지는 Spring Boot가 관리한다 (PostgreSQL 드라이버 42.7.13, Flyway 12.4.0, Hibernate 7.4.5, Micrometer 1.17.1, Testcontainers 2.0.5, Lombok 1.18.46).
+- 버전을 직접 적는 것은 springdoc과 ArchUnit 둘이다. 나머지는 Spring Boot가 관리한다 (PostgreSQL 드라이버 42.7.13, Flyway 12.4.0, Hibernate 7.4.5, Micrometer 1.17.1, Testcontainers 2.0.5, Lombok 1.18.46).
 - k6, Prometheus, Grafana는 Gradle 의존성이 아니다. Docker 이미지로 실행한다.
-- `build.gradle`에 반영했다. Lombok은 2026-10-06에 추가했다.
+- Lombok은 2026-10-06에, ArchUnit은 2026-10-07에 추가했다.
 
 ## 7. 개발 PC 요구사항
 
@@ -290,4 +294,4 @@ dependencies {
 | Docker | Compose와 Testcontainers가 동작하는 버전. k6, Prometheus, Grafana도 Docker로 실행한다 | 24.0.6 |
 | Node.js | 프런트 작업 시 | 22.14.0 |
 
-다른 PC에서 작업하려면 Docker를 설치해야 한다. [Git 가이드](git-guide.md)에는 아직 이 내용이 없다.
+다른 PC에서 작업하려면 JDK 21과 Docker를 설치해야 한다. 설치 방법은 [Git 가이드](git-guide.md) 1절에 있다.

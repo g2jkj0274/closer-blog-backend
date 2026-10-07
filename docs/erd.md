@@ -1,9 +1,9 @@
 # c1oser.dev DB 설계 (ERD)
 
-- 상태: 초안 (2026-10-01)
+- 상태: 구현 반영 (2026-10-07). 스키마는 `V1__init.sql`로 만들었고 이 문서를 구현에 맞췄다.
 - 범위: MVP(P0). P1 이후에 필요한 테이블은 8절에 방향만 적었다.
 - 함께 읽을 문서: [기능 명세서](functional-spec.md), [MVP 범위](mvp-scope.md), [기술 스택 결정](tech-stack.md), [API 명세서](api-spec.md)
-- 기준: PostgreSQL 18, Flyway. 6절의 DDL이 첫 마이그레이션(`V1__init.sql`)이 된다. MVP 범위 5절의 "데이터 모델"을 구체화한 문서다.
+- 기준: PostgreSQL 18, Flyway. 6절의 DDL은 첫 마이그레이션 `src/main/resources/db/migration/V1__init.sql`과 같다. MVP 범위 5절의 "데이터 모델"을 구체화한 문서다.
 
 ## 1. 도메인과 테이블
 
@@ -167,7 +167,7 @@ erDiagram
 | `rotated_at`이 30초 이내 | 다른 탭이 방금 회전한 경우다. 액세스 토큰만 새로 주고 쿠키는 건드리지 않는다. 브라우저에는 이미 새 쿠키가 있다 |
 | `rotated_at`이 30초보다 전 | 이미 바뀐 토큰을 다시 쓴 것이라 탈취로 본다. 그 가족의 행을 모두 지우고 401 |
 
-- 두 요청이 동시에 같은 토큰을 회전하지 않도록 `UPDATE ... SET rotated_at = now() WHERE id = ? AND rotated_at IS NULL`의 결과 행 수로 판정한다. 0이면 위 표의 셋째·넷째 줄로 간다.
+- 두 요청이 동시에 같은 토큰을 회전하지 않도록 `UPDATE ... SET rotated_at = :now WHERE id = ? AND rotated_at IS NULL`의 결과 행 수로 판정한다. `:now`는 애플리케이션의 시각이다. 0이면 위 표의 셋째·넷째 줄로 간다.
 - 로그아웃은 받은 토큰의 가족을 모두 지운다.
 - 만료된 행은 예약 작업이 지운다 (7절).
 
@@ -269,7 +269,7 @@ erDiagram
 제약: `PRIMARY KEY (post_id, tag_id)`. 인덱스: `(tag_id, post_id)`.
 
 - 태그는 서비스 전체가 함께 쓴다. TAG-02의 태그별 글 목록이 사람을 넘어서기 때문이다.
-- 새 태그는 `INSERT INTO tags (name) VALUES (?) ON CONFLICT ((lower(name))) DO NOTHING` 뒤에 다시 읽는다. 두 글이 같은 새 태그를 동시에 만들어도 오류가 나지 않는다.
+- 새 태그는 `INSERT INTO tags (name, created_at) VALUES (:name, :now) ON CONFLICT ((lower(name))) DO NOTHING` 뒤에 대소문자 무시로 다시 읽는다 (`TagRepository.insertIfAbsent`). 두 글이 같은 새 태그를 동시에 만들어도 오류가 나지 않는다.
 - 글에서 떼거나 글이 지워져도 `tags` 행은 남긴다. 글이 0개인 태그는 조회에서 뺀다.
 
 ## 5. 조회 규칙
@@ -282,7 +282,15 @@ erDiagram
 p.deleted_at IS NULL AND (p.owner_id = :viewerId OR p.mode = 644)
 ```
 
-이 조건은 post 도메인의 `PostVisibility` 한 곳에 두고, 네이티브 쿼리를 쓰는 search, profile도 이것을 가져다 쓴다. 저장소 메서드 이름에는 `Readable`을 붙인다 (`findReadableByFolder`, `countReadableByOwner`).
+이 조건은 post 도메인의 `PostVisibility` 한 곳에 둔다. 상수가 셋이다.
+
+| 상수 | 쓰는 곳 |
+|---|---|
+| `READABLE_JPQL` | post 저장소의 JPQL (`findReadableByOwner`, `findReadableInFolderByName` 등) |
+| `READABLE_SQL` | 위 조건의 네이티브 SQL. fs(폴더별 글 수), search, profile(사람의 글 수) |
+| `PUBLIC_SQL` | `p.deleted_at IS NULL AND p.mode = 644`. 보는 사람과 상관없는 공개 글. 사람 목록의 글 수처럼 누가 봐도 같아야 하는 값에 쓴다 |
+
+읽을 수 있는 글만 고르는 저장소 메서드 이름에는 `Readable`을 붙인다.
 
 ### 5.2 경로와 테이블
 
@@ -297,9 +305,9 @@ p.deleted_at IS NULL AND (p.owner_id = :viewerId OR p.mode = 644)
 
 ### 5.3 검색 (`pg_trgm`)
 
-- `content ILIKE '%' || :q || '%' ESCAPE '\'`를 GIN 인덱스로 거른다. 검색어의 `\`, `%`, `_`는 앞에 `\`를 붙여 글자로 만든다.
-- **검색어가 3글자 이상이어야 인덱스를 쓴다.** 2글자(`포인`)는 trigram이 나오지 않아 순차 조회가 된다. 한국어는 2글자 단어가 많으므로 2글자를 허용하되, 느려지는지 k6로 확인한다 (기술 스택 3.11절). 1글자는 API가 받지 않는다.
-- `pg_trgm`은 DB의 `LC_CTYPE`으로 글자와 기호를 가른다. `C` 로케일에서는 한글이 trigram에서 빠질 수 있다. 공식 Docker 이미지는 `en_US.utf8`이다. 운영 DB도 UTF-8 로케일이어야 하고, Testcontainers 테스트에서 한글 검색어가 인덱스를 쓰는지 `EXPLAIN`으로 확인한다.
+- `content ILIKE :pattern ESCAPE '\'`를 GIN 인덱스로 거른다. `:pattern`은 `%검색어%`이고, 검색어의 `\`, `%`, `_`는 앞에 `\`를 붙여 글자로 만든다. 이 처리는 `common/sql/LikePatterns` 한 곳에 있고 내용 검색, 이름 검색(`file_name`, `path`), 태그 자동완성(`lower(name) LIKE '검색어%'`), 사람 찾기(`username`, `display_name`)가 모두 쓴다.
+- **검색어가 3글자 이상이어야 인덱스를 쓴다.** 2글자(`포인`)는 trigram이 나오지 않아 순차 조회가 된다. 한국어는 2글자 단어가 많으므로 2글자를 허용하되, 느려지는지 k6로 확인한다 (기술 스택 3.11절). 내용 검색은 1글자를 받지 않는다. 이름 검색(`find`)과 태그 자동완성은 1글자도 받으므로 1~2글자 이름 검색은 순차 조회가 된다.
+- `pg_trgm`은 DB의 `LC_CTYPE`으로 글자와 기호를 가른다. `C` 로케일에서는 한글이 trigram에서 빠질 수 있다. 공식 Docker 이미지는 `en_US.utf8`이다. 운영 DB도 UTF-8 로케일이어야 한다. Testcontainers의 DB가 UTF-8이고 한글 검색어(`%포인터%`, `%자료구조%`)가 `ix_posts_content_trgm`, `ix_posts_file_name_trgm`, `ix_folders_path_trgm`을 쓸 수 있는 것을 `EXPLAIN`으로 확인했다 (`SearchTest.koreanSearchCanUseTrigramIndexes`). 데이터가 적으면 순차 조회가 더 싸므로 테스트에서는 `enable_seqscan`을 끄고 본다.
 
 ## 6. DDL (`V1__init.sql`)
 
@@ -426,14 +434,16 @@ CREATE INDEX ix_post_tags_tag ON post_tags (tag_id, post_id);
 | `uq_posts_folder_file_name` | 409 `POST_NAME_TAKEN` |
 | `ck_*` | 400 `VALIDATION_ERROR` (API 검증이 먼저 막으므로 나오면 검증 누락이다) |
 
+제약은 아니지만 같은 곳에서 `@Version` 충돌(낙관적 잠금 실패)을 409 `POST_VERSION_CONFLICT`로 바꾼다.
+
 ## 7. 예약 작업
 
 | 작업 | 쿼리 | 주기 | 위치 |
 |---|---|---|---|
-| 휴지통 비우기 (POST-09) | `DELETE FROM posts WHERE deleted_at < now() - interval '30 days'` | 매일 04:00 (Asia/Seoul) | post |
-| 만료 토큰 정리 | `DELETE FROM refresh_tokens WHERE expires_at < now()` | 매일 04:10 | auth |
+| 휴지통 비우기 (POST-09) | `DELETE FROM posts WHERE deleted_at < :before` (`:before` = 지금 − 30일) | 매일 04:00 (Asia/Seoul) | post |
+| 만료 토큰 정리 | `DELETE FROM refresh_tokens WHERE expires_at < :now` | 매일 04:10 (Asia/Seoul) | auth |
 
-`@Scheduled`이고 서버 한 대를 전제한다 (기술 스택 3.6절). `post_tags`는 `CASCADE`로 함께 지워진다.
+`@Scheduled`이고 서버 한 대를 전제한다 (기술 스택 3.6절). 기준 시각은 DB의 `now()`가 아니라 애플리케이션의 `Clock`이다. `post_tags`는 `CASCADE`로 함께 지워진다.
 
 ## 8. P1 이후 확장 방향
 

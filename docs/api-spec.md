@@ -1,10 +1,10 @@
 # c1oser.dev API 명세서
 
-- 상태: 초안 (2026-10-01)
+- 상태: 구현 반영 (2026-10-07). MVP API를 모두 구현했고 이 문서를 구현에 맞췄다.
 - 범위: MVP(P0). P1 이후 API는 12절에 방향만 적었다.
-- 함께 읽을 문서: [기능 명세서](functional-spec.md), [MVP 범위](mvp-scope.md), [기술 스택 결정](tech-stack.md), [DB 설계](erd.md)
+- 함께 읽을 문서: [기능 명세서](functional-spec.md), [MVP 범위](mvp-scope.md), [기술 스택 결정](tech-stack.md), [DB 설계](erd.md), [작업 목록](task-list.md)
 - MVP 범위 5절의 API 목록을 구체화한 문서다. 처음 초안(2026-09-30)에서 달라진 점은 13절에 있다.
-- 구현 뒤에는 springdoc이 만드는 OpenAPI 문서가 기준이 된다. 그때까지는 이 문서가 프런트와의 계약이다.
+- 필드 이름과 모양은 springdoc이 만드는 OpenAPI 문서(로컬의 `/swagger-ui/index.html`, `/v3/api-docs`)가 기준이다. 규칙, 권한, 오류 코드는 이 문서가 기준이다. OpenAPI 문서는 운영 프로필에서 끈다.
 
 ## 1. 공통 규약
 
@@ -31,9 +31,10 @@
 | 리프레시 | 쿠키 `refresh_token` (`HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth`) | 로그인 유지면 30일(`Max-Age`), 아니면 세션 쿠키 |
 
 - 액세스 토큰은 HS256 JWT다. 클레임은 `sub`(사용자 id), `username`, `iat`, `exp`. 서명 키는 환경 변수 `JWT_SECRET`(32바이트 이상)이다.
-- 로그인 없이 부를 수 있는 API는 `/auth/*` 다섯 개뿐이다. 나머지는 토큰이 없거나 틀리면 401이다.
+- 로그인 없이 부를 수 있는 API는 `/auth/*` 다섯 개뿐이다. 나머지는 토큰이 없거나 틀리면 401이고 `WWW-Authenticate: Bearer` 헤더가 붙는다. `/api/v1` 밖의 health, 지표, API 문서도 로그인 없이 열린다 (3절 끝 "운영·문서용 엔드포인트").
 - 리프레시 토큰을 쓰는 `/auth/refresh`, `/auth/logout`은 쿠키로만 사용자를 안다. `SameSite=Lax`라 다른 사이트에서 보낸 POST에는 쿠키가 실리지 않는다.
-- CORS는 프런트 출처 하나만 허용하고 `Access-Control-Allow-Credentials: true`를 준다. 출처 값은 도메인 구성(기술 스택 5절 3번)이 정해지면 넣는다.
+- CORS는 환경 변수 `CORS_ALLOWED_ORIGINS`(쉼표로 여럿)의 출처만 허용하고 `Access-Control-Allow-Credentials: true`를 준다. 로컬 기본값은 `http://localhost:5173`이고, 운영에서는 값이 없으면 앱이 뜨지 않는다. 운영 출처는 도메인 구성(기술 스택 5절 3번)이 정해지면 넣는다.
+- CORS는 `/api/**`에만 적용한다. 허용 메서드는 GET, POST, PUT, PATCH, DELETE, OPTIONS, 허용 헤더는 `Authorization`, `Content-Type`이다. 만들기 API의 `Location` 헤더를 프런트가 읽을 수 있게 내보낸다. 사전 요청 결과는 1시간 기억한다.
 - 도움말(`/help`)과 약관(AUTH-06)은 프런트의 정적 화면이다. API가 없다.
 
 ### 1.3 권한
@@ -50,7 +51,7 @@
 1. 대상이 없거나 읽을 수 없으면 **404**.
 2. 읽을 수 있지만 소유자가 아니면 **403**.
 
-비공개 글이나 남의 휴지통 글에 쓰기 요청을 보내도 1단계에서 404가 된다. 403은 "있다는 것을 이미 아는" 대상에만 나온다. 이 규칙은 post 도메인의 `PostAccessPolicy` 한 곳에 둔다.
+비공개 글이나 남의 휴지통 글에 쓰기 요청을 보내도 1단계에서 404가 된다. 403은 "있다는 것을 이미 아는" 대상에만 나온다. 글의 규칙은 post 도메인의 `PostAccessPolicy` 한 곳에 둔다. 폴더는 누구나 볼 수 있으므로 "없으면 404, 남의 것이면 403"이고 `FolderService`에 있다.
 
 **개수도 읽을 수 있는 글만 센다.** 폴더의 글 수, 사람의 글 수, 태그의 글 수, 검색 결과 수가 모두 그렇다.
 
@@ -66,11 +67,11 @@
 
 - `code`: 프런트가 분기하는 키.
 - `message`: 터미널 오류 줄에 그대로 찍을 수 있는 한국어 문장.
-- `errors`: `VALIDATION_ERROR`일 때만 `{ "field", "reason" }` 목록이 들어 있다. 그 밖에는 빈 배열이다.
+- `errors`: 요청 본문이나 파라미터의 검증(길이, 형식, 필수값)에 걸린 `VALIDATION_ERROR`일 때 `{ "field", "reason" }` 목록이 들어 있다. 파라미터면 `field`는 파라미터 이름이다. 그 밖에는 빈 배열이다. `VALIDATION_ERROR`여도 아래처럼 서버가 판단한 경우는 빈 배열이고 `message`만 있다.
 
 | 상태 | code | 언제 |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | 형식, 길이, 필수값, 이름 규칙, 폴더 깊이 위반 |
+| 400 | `VALIDATION_ERROR` | 형식, 길이, 필수값, 이름 규칙 위반. 그리고 폴더 깊이 초과, 홈 폴더 `rmdir`, 공개 범위 640, 고쳤거나 잘린 `cursor`, 여러 줄 검색어, 읽을 수 없는 JSON, 빠진 필수 파라미터, 숫자 자리의 문자 같은 파라미터 형식 오류 |
 | 400 | `INVALID_PATH` | `GET /fs`의 경로 문법이 틀림 |
 | 401 | `UNAUTHORIZED` | 토큰이 없음, 만료, 위조. 리프레시 토큰 재사용 |
 | 401 | `INVALID_CREDENTIALS` | 아이디·이메일 또는 비밀번호가 틀림. 어느 쪽인지 알리지 않는다 |
@@ -100,7 +101,7 @@ GET /users?size=20&cursor=eyJ...
 ```
 
 - `size`: 기본 20, 최대 50. 마지막 페이지면 `nextCursor`가 `null`이다.
-- 커서는 정렬 키와 id를 base64url로 감싼 문자열이다. 프런트는 해석하지 않고 그대로 돌려보낸다.
+- 커서는 정렬 키와 id를 base64url로 감싼 문자열이다. 프런트는 해석하지 않고 그대로 돌려보낸다. 고쳤거나 잘린 커서, 다른 정렬의 커서는 400 `VALIDATION_ERROR`("cursor가 올바르지 않습니다. 처음부터 다시 불러오세요.")다. 프런트는 첫 페이지부터 다시 부른다.
 - 정렬 키가 바뀌는 목록(글 수 순, 최근 수정순)은 페이지 사이에 데이터가 바뀌면 항목이 겹치거나 빠질 수 있다. 프런트는 id로 중복을 걸러 낸다.
 
 ### 1.6 경로
@@ -118,14 +119,18 @@ GET /users?size=20&cursor=eyJ...
 ```
 com.closer.blog
 ├── common              횡단 관심사. 도메인을 모른다
-│   ├── config          SecurityConfig, CorsConfig, OpenApiConfig, SchedulingConfig
+│   ├── config          SecurityConfig, CorsConfig, CorsProperties, ClockConfig, SchedulingConfig,
+│   │                   OpenApiConfig, ApiTags(Swagger 태그 이름)
 │   ├── error           ErrorCode, ApiException, GlobalExceptionHandler, ErrorResponse
-│   ├── security        JwtProvider, @CurrentUserId, SecurityErrorHandler
-│   └── web             CursorPage, CursorCodec, PathSyntax
+│   ├── security        JwtProvider, JwtProperties, @CurrentUserId, SecurityErrorHandler
+│   ├── sql             LikePatterns (LIKE 검색어의 \, %, _ 이스케이프)
+│   ├── validation      @MaxUtf8Bytes (비밀번호 72바이트, 본문 1MB)
+│   └── web             CursorPage, CursorCodec, PathSyntax, DisplayPath
 │
 │   ── 도메인: 엔티티를 갖고 쓰기를 맡는다 ──
-├── user                User. 가입 시 사용자 생성, 프로필 수정
-├── auth                AuthController /auth/*. RefreshToken, LoginAttemptPolicy
+├── user                User. 가입 시 사용자 생성, 비밀번호 확인과 로그인 잠금, 프로필 수정
+├── auth                AuthController /auth/*. AuthService, RefreshToken, RefreshTokenService,
+│                       RefreshTokenCookieFactory, RefreshTokenCleanupScheduler
 ├── folder              Folder. FolderController POST·DELETE /folders (mkdir, rmdir)
 ├── tag                 Tag. 이름 정규화, 찾거나 만들기
 ├── post                Post, PostTag, PostAccessPolicy, PostVisibility
@@ -139,7 +144,7 @@ com.closer.blog
 └── profile             MeController /me/*, UserController /users, /users/{username}
 ```
 
-각 패키지 안은 `controller → service → domain(엔티티, 저장소)` 방향이고, `dto`는 controller와 service가 함께 쓴다.
+각 패키지 안은 `controller → service → domain(엔티티, 저장소)` 방향이고, `dto`는 controller와 service가 함께 쓴다. 조회 패키지(fs, search, profile)는 엔티티가 없어서 네이티브 쿼리를 `domain` 대신 `repository`에 둔다. 예약 작업은 `scheduler`, 패키지 전용 설정은 `config`에 둔다.
 
 패키지 사이의 의존은 아래 방향만 허용한다. 순환이 없다.
 
@@ -156,7 +161,7 @@ com.closer.blog
 
 - 다른 패키지는 그 패키지의 service로 부른다. 저장소를 직접 부르지 않는다.
 - 예외로 조회 패키지(fs, search, profile)는 여러 테이블을 묶는 네이티브 쿼리를 자기 저장소에 둘 수 있다. 읽기 전용이고, 글을 걸러야 하면 반드시 `PostVisibility`의 조건을 쓴다 ([DB 설계 5.1절](erd.md#51-읽기-권한)).
-- 이 규칙은 ArchUnit 같은 테스트로 고정하는 것을 권한다.
+- 이 규칙은 ArchUnit 테스트(`src/test/java/com/closer/blog/ArchitectureTest.java`)가 고정한다. 위 표, common이 도메인을 모르는 것, 순환이 없는 것, 저장소를 자기 패키지 안에서만 쓰는 것, controller가 저장소를 직접 쓰지 않는 것, domain이 service·dto·controller를 모르는 것을 본다. `PostVisibility.READABLE_SQL` 같은 `static final` 문자열 상수는 컴파일할 때 값이 복사되므로 그 상수를 통한 의존은 보지 못한다.
 
 ## 3. 엔드포인트 목록
 
@@ -189,6 +194,14 @@ com.closer.blog
 | search | GET | `/search/names` | 이름·경로 검색 | `find` | SRCH-02, 03 |
 | search | GET | `/tags` | 태그 자동완성 | 편집기 태그 입력 | TAG-01 |
 | search | GET | `/tags/{name}/posts` | 태그별 글 목록 | 태그 클릭 | TAG-02 |
+
+**운영·문서용 엔드포인트.** `/api/v1` 밖에 있고 로그인 없이 열린다. 프런트는 쓰지 않는다.
+
+| 경로 | 용도 | 로컬 | 운영(`prod` 프로필) |
+|---|---|---|---|
+| `/actuator/health` | 살아 있는지 | 8080 | **8081에만**. 공개하지 않는 포트다 |
+| `/actuator/prometheus` | Prometheus 지표 | 8080 | **8081에만** |
+| `/swagger-ui/index.html`, `/v3/api-docs` | API 문서 | 8080 | 끈다 (404) |
 
 ## 4. 공통 응답 객체
 
@@ -321,8 +334,9 @@ GET /auth/availability?email=kim@example.com
 | 잠금 중 | 423 `ACCOUNT_LOCKED`. 비밀번호를 확인하지 않는다 |
 | 비밀번호 틀림 | 401 `INVALID_CREDENTIALS`. 5번째면 15분 잠근다 ([DB 설계 4.1절](erd.md#41-users-user)) |
 | 성공 | 실패 횟수를 0으로 되돌리고 토큰 가족을 새로 만든다 |
+| 비밀번호가 UTF-8로 72바이트 초과 | 400 `VALIDATION_ERROR`. BCrypt가 72바이트까지만 쓰기 때문이다. 실패 횟수에 넣지 않는다 |
 
-`keepLoggedIn`이 `true`면 쿠키에 `Max-Age=2592000`(30일)을 붙인다. `false`면 세션 쿠키로 주고, DB 만료는 24시간이다.
+`keepLoggedIn`이 `true`면 쿠키에 `Max-Age=2592000`(30일)을 붙인다. `false`이거나 빠지면 세션 쿠키로 주고, DB 만료는 24시간이다.
 
 ### POST /auth/refresh
 
@@ -417,7 +431,7 @@ GET /users?q=kim&sort=posts&size=20&cursor=
 
 | 파라미터 | 값 |
 |---|---|
-| q | 선택. 1~20자. 아이디 또는 표시 이름에 부분 일치(대소문자 무시). `find @kim`이면 프런트가 `@`를 떼고 보낸다 |
+| q | 선택. 앞뒤 공백을 자른 뒤 1~20자. 아이디 또는 표시 이름에 부분 일치(대소문자 무시). `%`, `_`는 글자 그대로 찾는다. `find @kim`이면 프런트가 `@`를 떼고 보낸다 |
 | sort | `posts`(기본, 공개 글 많은 순) 또는 `joined`(최근 가입순) |
 
 응답 `200`
@@ -521,7 +535,7 @@ GET /folders/2?sort=name&size=50&cursor=
 | 파라미터 | 값 |
 |---|---|
 | sort | `name`(기본, 이름순) 또는 `updated`(최근 수정순) |
-| size, cursor | 글 목록에만 적용. `size` 기본 50 |
+| size, cursor | 글 목록에만 적용. `size` 기본 50, 최대 50 |
 
 응답 `200`
 
@@ -584,7 +598,7 @@ GET /fs?path=/users/kim/spring/security.md
 { "type": "folder", "folder": { ... }, "parent": { ... }, "folders": [ ... ], "posts": { ... } }
 ```
 
-`type`을 뺀 나머지는 `GET /folders/{id}`의 기본 정렬 응답과 같다.
+`type`을 뺀 나머지는 `GET /folders/{id}`의 기본 정렬 응답과 같다. 글 목록은 이름순 첫 50개다. 다음 페이지는 `GET /folders/{folder.id}?cursor={posts.nextCursor}`로 받는다. `/fs`는 커서를 받지 않는다.
 
 응답 `200`: 글일 때
 
@@ -592,7 +606,7 @@ GET /fs?path=/users/kim/spring/security.md
 { "type": "post", "post": { "PostDetail..." } }
 ```
 
-오류: 404. 없는 사용자, 없는 폴더, 없는 글, 읽을 수 없는 글, 휴지통의 글이 모두 같다.
+오류: 404. 없는 사용자, 없는 폴더, 없는 글, 읽을 수 없는 글, 휴지통의 글이 모두 같다. 경로 문법이 틀리면 400 `INVALID_PATH`, `path` 파라미터가 아예 없으면 400 `VALIDATION_ERROR`다.
 
 ## 8. post
 
@@ -693,11 +707,11 @@ GET /fs?path=/users/kim/spring/security.md
 }
 ```
 
-`purgeAt`은 `deletedAt + 30일`이다. 실제로는 그 뒤 첫 예약 작업(매일 04:00)에서 지워진다.
+`purgeAt`은 `deletedAt + 30일`이다. 실제로는 그 뒤 첫 예약 작업(매일 04:00, Asia/Seoul)에서 지워진다.
 
 ### POST /trash/{id}/restore
 
-휴지통의 글을 원래 폴더로 되돌린다. 본문은 없어도 된다. 원래 자리에 같은 이름의 글이 생겨 있으면 이름을 바꿔 복구한다.
+휴지통의 글을 원래 폴더로 되돌린다. 본문은 없어도 되고, 없으면 원래 이름으로 복구한다. 원래 자리에 같은 이름의 글이 생겨 있으면 서버가 이름을 바꾸지 않고 409 `POST_NAME_TAKEN`을 준다. 프런트는 새 이름을 물어 아래처럼 `fileName`을 보내 다시 부른다.
 
 ```json
 { "fileName": "pointer-2.md" }
@@ -739,7 +753,7 @@ GET /search/content?q=포인터&scope=all&size=20&cursor=
 
 | 파라미터 | 값 |
 |---|---|
-| q | 필수. 2~100자. 정규식이 아닌 글자 그대로다. 앞뒤 공백은 자른다 |
+| q | 필수. 앞뒤 공백을 자른 뒤 2~100자, 한 줄(줄바꿈이 있으면 400). 정규식이 아닌 글자 그대로다(`%`, `_`도 글자) |
 | scope | `all`(기본, 읽을 수 있는 모든 글) 또는 `mine` |
 
 응답 `200`
@@ -778,7 +792,7 @@ GET /search/names?q=pointer&scope=all
 
 | 파라미터 | 값 |
 |---|---|
-| q | 필수. 1~100자 |
+| q | 필수. 앞뒤 공백을 자른 뒤 1~100자, 한 줄. 글자 그대로 찾는다 |
 | scope | `all`(기본) 또는 `mine` |
 
 응답 `200`
@@ -795,7 +809,7 @@ GET /search/names?q=pointer&scope=all
 - 폴더는 `path`, 글은 `file_name` 또는 폴더의 `path`에서 찾는다.
 - 이름이 검색어로 시작하는 것을 먼저 놓고, 그다음 최근 순이다(글은 `updatedAt`, 폴더는 `createdAt`).
 - 폴더와 글 각각 최대 50개다. 커서 없이 한 번에 준다.
-- 읽을 수 없는 글은 나오지 않는다. 폴더는 모두 나온다.
+- 읽을 수 없는 글은 나오지 않는다. 폴더는 홈을 뺀 모두가 나온다.
 
 `find @kim`은 이 API가 아니라 `GET /users?q=kim`이다. 프런트가 `@`로 구분한다.
 
@@ -809,7 +823,7 @@ GET /tags?q=포인&size=10
 
 | 파라미터 | 값 |
 |---|---|
-| q | 필수. 1~30자. 앞의 `#`은 뗀다. 이름의 앞부분 일치, 대소문자 무시 |
+| q | 필수. 앞뒤 공백과 앞의 `#`을 뗀 뒤 1~30자, 한 줄. 이름의 앞부분 일치, 대소문자 무시 |
 | size | 기본 10, 최대 20 |
 
 응답 `200`: `{ "items": [ { "name": "포인터", "postCount": 12 } ] }`
@@ -818,7 +832,7 @@ GET /tags?q=포인&size=10
 
 ### GET /tags/{name}/posts
 
-태그를 눌렀을 때. `{name}`은 `#` 없이 URL 인코딩해 보내고, 대소문자를 무시한다.
+태그를 눌렀을 때. `{name}`은 `#` 없이 URL 인코딩해 보내고, 대소문자를 무시한다. 앞뒤 공백과 앞의 `#`이 붙어 와도 떼고 찾는다.
 
 ```
 GET /tags/%ED%8F%AC%EC%9D%B8%ED%84%B0/posts?scope=all&size=20&cursor=
@@ -834,7 +848,7 @@ GET /tags/%ED%8F%AC%EC%9D%B8%ED%84%B0/posts?scope=all&size=20&cursor=
 { "tag": { "name": "포인터" }, "items": [ "PostSummary..." ], "nextCursor": null }
 ```
 
-최근 수정순이다. 태그가 없거나 읽을 수 있는 글이 없으면 빈 목록이다. 404를 주지 않는다.
+최근 수정순이다. 태그가 없거나 읽을 수 있는 글이 없으면 빈 목록이다. 404를 주지 않는다. `tag.name`은 저장된 표기다(`/tags/SPRING/posts` → `"Spring"`). 태그가 없으면 요청한 이름을 그대로 돌려준다.
 
 ## 10. 명령어와 API
 
@@ -888,7 +902,7 @@ GET /tags/%ED%8F%AC%EC%9D%B8%ED%84%B0/posts?scope=all&size=20&cursor=
 | 11 | 오타 | `GET /fs?path=~/python/pointr.md` → 404 |
 | 12 | logout 후 | `POST /auth/logout` → `POST /auth/refresh` 401 → 로그인 화면 |
 
-구현 순서는 MVP 범위 5절의 "작업 순서"를 따른다. 1단계(auth, profile 일부)가 끝나면 시나리오 1, 2, 12가 통과한다.
+구현은 MVP 범위 5절의 "작업 순서"대로 했다. 위 12단계를 API로 처음부터 끝까지 잇는 테스트가 `src/test/java/com/closer/blog/MvpScenarioTest.java`다. 화면에서 명령어와 마우스로 통과하는지는 프런트가 생긴 뒤 확인한다 ([작업 목록](task-list.md)).
 
 ## 12. P1 이후 API
 

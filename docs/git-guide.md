@@ -64,10 +64,19 @@ gh auth setup-git
 **4) IntelliJ IDEA와 JDK 21 준비.** 프로젝트가 Java 21을 씁니다.
 JDK가 없으면 IntelliJ가 프로젝트를 열 때 설치를 제안하니 그대로 따르면 됩니다.
 
-설정이 잘 됐는지는 아래 명령으로 확인합니다. `Logged in to github.com account g2jkj0274`가 보이면 성공입니다.
+**5) Docker Desktop 설치.** 테스트(Testcontainers)와 개발용 DB가 Docker로 PostgreSQL을 띄웁니다. Docker가 없으면 테스트도 앱 실행도 실패합니다.
+
+```powershell
+winget install --id Docker.DockerDesktop -e
+```
+
+설치가 끝나면 Docker Desktop을 한 번 실행합니다. 재부팅이나 WSL 업데이트를 하라고 하면 그대로 따르세요.
+
+설정이 잘 됐는지는 아래 명령으로 확인합니다. `Logged in to github.com account g2jkj0274`가 보이고, `docker version`에 `Server:` 부분까지 나오면 성공입니다.
 
 ```powershell
 gh auth status
+docker version
 ```
 
 ## 2. 프로젝트 처음 받기 (PC마다 한 번만)
@@ -91,6 +100,15 @@ Gradle 프로젝트로 자동 인식되고, 오른쪽 아래에서 의존성 다
 
 .idea 폴더 같은 IntelliJ 개인 설정은 GitHub에 올리지 않습니다.
 그래서 새 PC에서는 실행 설정이나 코드 스타일을 다시 맞춰야 할 수 있습니다.
+
+**잘 받았는지 확인:** Docker Desktop이 켜져 있는지 확인하고 IntelliJ 터미널에서 테스트를 돌립니다.
+처음에는 PostgreSQL 이미지와 의존성을 받느라 몇 분 걸립니다. `BUILD SUCCESSFUL`이 나오면 됩니다.
+
+```powershell
+./gradlew test
+```
+
+앱 실행, Swagger, 모니터링을 띄우는 방법은 [README](../README.md)의 "실행 방법"에 있습니다.
 
 ## 3. 작업 시작 전: 최신 내용 받기 (매번)
 
