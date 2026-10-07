@@ -1,0 +1,10 @@
+# 로컬 개발용. IntelliJ에서 띄운 앱(호스트의 8080)의 지표를 5초마다 긁는다.
+# 운영에서는 Actuator가 8081에 있다 (application-prod.yaml). 운영 수집 설정은 호스팅이 정해진 뒤에 둔다
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: blog-server
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8080"]

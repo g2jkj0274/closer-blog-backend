@@ -36,5 +36,6 @@ ENV SPRING_PROFILES_ACTIVE=prod
 # 컨테이너 메모리 제한의 75%까지 힙으로 쓴다
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
 
-EXPOSE 8080
+# 8080은 API, 8081은 Actuator(health, prometheus)다. 8081은 밖에 공개하지 않는다
+EXPOSE 8080 8081
 ENTRYPOINT ["java", "-jar", "application.jar"]

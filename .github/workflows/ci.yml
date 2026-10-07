@@ -71,7 +71,8 @@ jobs:
       - name: Build image
         run: docker build -t closer-blog-server:ci .
 
-      # 운영 프로필로 띄워 health가 UP인지 본다. 러너에서 --network host면 localhost가 위의 postgres다
+      # 운영 프로필로 띄워 health가 UP인지 본다. 러너에서 --network host면 localhost가 위의 postgres다.
+      # 운영에서 Actuator는 8081에 있다 (application-prod.yaml)
       - name: Start image and check health
         run: |
           docker run -d --name app --network host \
@@ -82,7 +83,7 @@ jobs:
             -e CORS_ALLOWED_ORIGINS=http://localhost:5173 \
             closer-blog-server:ci
           for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:8080/actuator/health; then
+            if curl -fsS http://localhost:8081/actuator/health; then
               exit 0
             fi
             # 환경 변수가 빠지는 등으로 앱이 시작하다 멈췄으면 2분을 기다리지 않는다

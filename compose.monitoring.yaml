@@ -1,0 +1,36 @@
+# 모니터링 (docs/tech-stack.md 3.11절). 평소 개발에서는 띄우지 않고, 부하를 걸어 볼 때만 띄운다.
+#
+#   docker compose -f compose.monitoring.yaml up -d      띄우기
+#   docker compose -f compose.monitoring.yaml down       끄기
+#
+# Prometheus  http://localhost:9090
+# Grafana     http://localhost:3000   (보기는 로그인 없이, 고치려면 admin / admin)
+#
+# 앱은 IntelliJ에서 띄운 것(호스트의 8080)을 긁는다. 설정은 monitoring/prometheus.yml에 있다.
+
+# compose.yaml(개발 DB)과 다른 프로젝트로 둔다. down을 해도 DB 컨테이너는 건드리지 않는다
+name: blog-server-monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    # 컨테이너에서 호스트의 앱에 닿는 주소. Docker Desktop에는 원래 있고, 리눅스에서는 이 줄이 만든다
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus

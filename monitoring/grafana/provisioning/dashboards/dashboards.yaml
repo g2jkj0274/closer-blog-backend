@@ -1,0 +1,9 @@
+# Grafana가 켜질 때 monitoring/grafana/dashboards의 JSON을 대시보드로 불러온다
+apiVersion: 1
+
+providers:
+  - name: blog-server
+    folder: c1oser.dev
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
