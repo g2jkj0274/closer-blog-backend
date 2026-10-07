@@ -1,5 +1,6 @@
 package com.closer.blog.common.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.in;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 
 import com.closer.blog.TestcontainersConfiguration;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +59,20 @@ class OpenApiTest {
                     .andExpect(jsonPath("$.paths.*.*.tags[*]", everyItem(in(tags))))
                     .andExpect(jsonPath("$.paths['/api/v1/trash'].get.tags[0]").value(ApiTags.TRASH))
                     .andExpect(jsonPath("$.paths['/api/v1/users/{username}/posts'].get.tags[0]").value(ApiTags.POST));
+        }
+
+        @Test
+        void everyApiHasASummary() throws Exception {
+            String body = mockMvc.perform(get("/v3/api-docs")).andReturn().getResponse().getContentAsString();
+            List<Object> operations = JsonPath.read(body, "$.paths.*.*");
+            List<String> summaries = JsonPath.read(body, "$.paths.*.*.summary");
+
+            // @Operation(summary)를 빠뜨린 API가 있으면 summary가 operation 수보다 적다
+            assertThat(summaries).hasSameSizeAs(operations).allSatisfy(summary -> assertThat(summary).isNotBlank());
+            assertThat((String) JsonPath.read(body, "$.paths['/api/v1/posts'].post.summary"))
+                    .isEqualTo("글 만들기 (touch 뒤 첫 :w)");
+            assertThat((String) JsonPath.read(body, "$.paths['/api/v1/posts/{id}'].patch.description"))
+                    .contains("POST_VERSION_CONFLICT");
         }
 
         @Test

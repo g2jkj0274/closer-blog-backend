@@ -5,6 +5,7 @@ import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.search.dto.TagPosts;
 import com.closer.blog.search.dto.TagSuggestions;
 import com.closer.blog.search.service.SearchService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -27,7 +28,7 @@ public class TagQueryController {
 
     private final SearchService searchService;
 
-    // 편집기 태그 입력의 자동완성
+    @Operation(summary = "태그 자동완성 (편집기 태그 입력)")
     @GetMapping
     TagSuggestions suggest(@CurrentUserId Long viewerId, @RequestParam String q,
                            @RequestParam(defaultValue = "10")
@@ -36,7 +37,8 @@ public class TagQueryController {
         return searchService.suggestTags(viewerId, q, size);
     }
 
-    // 태그를 눌렀을 때. {name}은 # 없이 URL 인코딩해 보낸다
+    @Operation(summary = "태그별 글 목록 (태그 클릭)",
+            description = "name은 # 없이 URL 인코딩해 보낸다. 없는 태그는 404가 아니라 빈 목록이다.")
     @GetMapping("/{name}/posts")
     TagPosts posts(@CurrentUserId Long viewerId, @PathVariable String name,
                    @RequestParam(defaultValue = "all")

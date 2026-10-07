@@ -6,6 +6,7 @@ import com.closer.blog.common.web.CursorPage;
 import com.closer.blog.profile.dto.UserCard;
 import com.closer.blog.profile.dto.UserProfile;
 import com.closer.blog.profile.service.ProfileService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -29,7 +30,8 @@ public class UserController {
 
     private final ProfileService profileService;
 
-    // ls /users, find @kim
+    @Operation(summary = "사람 목록·찾기 (ls /users, find @아이디)",
+            description = "글 수는 공개 글 수다.")
     @GetMapping
     CursorPage<UserCard> list(@RequestParam(required = false)
                               @Size(min = 1, max = 20, message = "q는 1~20자입니다.") String q,
@@ -42,7 +44,7 @@ public class UserController {
         return profileService.list(q, sort.equals("joined"), cursor, size);
     }
 
-    // cd /users/kim의 프로필 패널
+    @Operation(summary = "프로필 (cd /users/{아이디})")
     @GetMapping("/{username}")
     UserProfile profile(@CurrentUserId Long viewerId, @PathVariable String username) {
         return profileService.profile(viewerId, username);

@@ -5,6 +5,7 @@ import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.common.web.CursorPage;
 import com.closer.blog.post.dto.PostSummary;
 import com.closer.blog.post.service.PostService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -23,7 +24,8 @@ public class UserPostController {
 
     private final PostService postService;
 
-    // cd /users/kim의 가운데 목록. 폴더와 상관없이 최근 수정순
+    @Operation(summary = "그 사람의 글 목록 (cd /users/{아이디})",
+            description = "폴더와 상관없이 최근 수정순. 보는 사람이 읽을 수 있는 글만 나온다.")
     @GetMapping
     CursorPage<PostSummary> list(@CurrentUserId Long viewerId, @PathVariable String username,
                                  @RequestParam(required = false) String cursor,

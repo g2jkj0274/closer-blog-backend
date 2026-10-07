@@ -6,6 +6,7 @@ import com.closer.blog.profile.dto.MeResponse;
 import com.closer.blog.profile.dto.MeSummary;
 import com.closer.blog.profile.dto.UpdateProfileRequest;
 import com.closer.blog.profile.service.ProfileService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,19 +24,20 @@ public class MeController {
 
     private final ProfileService profileService;
 
-    // whoami
+    @Operation(summary = "내 정보 (whoami)")
     @GetMapping
     MeResponse me(@CurrentUserId Long userId) {
         return profileService.me(userId);
     }
 
-    // config 화면의 저장
+    @Operation(summary = "프로필 수정 (config)",
+            description = "세 필드를 모두 보낸다. 빈 문자열이면 비운다.")
     @PutMapping("/profile")
     MeResponse updateProfile(@CurrentUserId Long userId, @Valid @RequestBody UpdateProfileRequest request) {
         return profileService.updateProfile(userId, request);
     }
 
-    // 홈 화면의 neofetch
+    @Operation(summary = "홈 요약 (neofetch)")
     @GetMapping("/summary")
     MeSummary summary(@CurrentUserId Long userId) {
         return profileService.summary(userId);

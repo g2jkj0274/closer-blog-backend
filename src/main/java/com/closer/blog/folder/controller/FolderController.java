@@ -8,6 +8,7 @@ import com.closer.blog.folder.domain.Folder;
 import com.closer.blog.folder.dto.CreateFolderRequest;
 import com.closer.blog.folder.dto.FolderSummary;
 import com.closer.blog.folder.service.FolderService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class FolderController {
 
     private final FolderService folderService;
 
+    @Operation(summary = "폴더 만들기 (mkdir)")
     @PostMapping
     ResponseEntity<FolderSummary> create(@CurrentUserId Long userId,
                                          @Valid @RequestBody CreateFolderRequest request) {
@@ -35,6 +37,8 @@ public class FolderController {
                 .body(FolderSummary.created(folder));
     }
 
+    @Operation(summary = "빈 폴더 지우기 (rmdir)",
+            description = "하위 폴더나 글(휴지통 글 포함)이 있으면 409 FOLDER_NOT_EMPTY다.")
     @DeleteMapping("/{id}")
     ResponseEntity<Void> delete(@CurrentUserId Long userId, @PathVariable Long id) {
         folderService.delete(userId, id);

@@ -5,6 +5,7 @@ import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.search.dto.ContentSearchResult;
 import com.closer.blog.search.dto.NameSearchResult;
 import com.closer.blog.search.service.SearchService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -23,7 +24,9 @@ public class SearchController {
 
     private final SearchService searchService;
 
-    // grep. q의 길이는 앞뒤 공백을 자른 뒤 서비스가 본다
+    // q의 길이는 앞뒤 공백을 자른 뒤 서비스가 본다
+    @Operation(summary = "내용 검색 (grep)",
+            description = "q는 앞뒤 공백을 자른 뒤 2~100자다. 글마다 일치 횟수와 일치한 줄을 최대 3줄 준다.")
     @GetMapping("/content")
     ContentSearchResult content(@CurrentUserId Long viewerId, @RequestParam String q,
                                 @RequestParam(defaultValue = "all")
@@ -35,7 +38,8 @@ public class SearchController {
         return searchService.searchContent(viewerId, q, scope.equals("mine"), cursor, size);
     }
 
-    // find. find @kim은 GET /users?q=kim이다
+    @Operation(summary = "이름·경로 검색 (find)",
+            description = "find @아이디는 이 API가 아니라 GET /api/v1/users?q=다.")
     @GetMapping("/names")
     NameSearchResult names(@CurrentUserId Long viewerId, @RequestParam String q,
                            @RequestParam(defaultValue = "all")

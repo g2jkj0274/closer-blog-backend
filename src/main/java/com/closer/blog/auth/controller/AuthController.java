@@ -14,6 +14,7 @@ import com.closer.blog.common.error.ApiException;
 import com.closer.blog.common.error.ErrorCode;
 import com.closer.blog.user.domain.User;
 import com.closer.blog.user.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -43,6 +44,7 @@ public class AuthController {
 
     private final RefreshTokenCookieFactory refreshTokenCookieFactory;
 
+    @Operation(summary = "회원가입 (adduser)")
     @PostMapping("/signup")
     ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
         User user = authService.signup(request);
@@ -50,6 +52,8 @@ public class AuthController {
                 .body(SignupResponse.from(user));
     }
 
+    @Operation(summary = "아이디·이메일 중복 확인",
+            description = "username과 email 중 하나만 보낸다.")
     @GetMapping("/availability")
     AvailabilityResponse availability(
             @RequestParam(required = false)
@@ -67,6 +71,8 @@ public class AuthController {
         return new AvailabilityResponse(available);
     }
 
+    @Operation(summary = "로그인 (login)",
+            description = "응답 본문에 액세스 토큰을, refresh_token 쿠키에 리프레시 토큰을 준다.")
     @PostMapping("/login")
     ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResult result = authService.login(request);
@@ -75,6 +81,8 @@ public class AuthController {
                 .body(LoginResponse.of(result.accessToken(), result.user()));
     }
 
+    @Operation(summary = "액세스 토큰 재발급",
+            description = "앱을 켤 때와 401을 받았을 때 부른다. refresh_token 쿠키를 쓰고, 새 쿠키로 바꿔 준다.")
     @PostMapping("/refresh")
     ResponseEntity<LoginResponse> refresh(
             @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshToken,
@@ -97,6 +105,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "로그아웃 (logout)")
     @PostMapping("/logout")
     ResponseEntity<Void> logout(
             @CookieValue(name = RefreshTokenCookieFactory.COOKIE_NAME, required = false) String refreshToken) {

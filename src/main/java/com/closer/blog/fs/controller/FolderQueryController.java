@@ -5,6 +5,7 @@ import com.closer.blog.common.security.CurrentUserId;
 import com.closer.blog.fs.dto.FolderListing;
 import com.closer.blog.fs.dto.FolderTree;
 import com.closer.blog.fs.service.FsService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -27,6 +28,7 @@ public class FolderQueryController {
 
     private final FsService fsService;
 
+    @Operation(summary = "폴더 안 목록 (ls, cd)")
     @GetMapping("/folders/{id}")
     FolderListing get(@CurrentUserId Long viewerId, @PathVariable Long id,
                       @RequestParam(defaultValue = "name")
@@ -38,7 +40,7 @@ public class FolderQueryController {
         return fsService.listFolder(viewerId, id, sort.equals("updated"), cursor, size);
     }
 
-    // 왼쪽 트리
+    @Operation(summary = "폴더 트리 (왼쪽 트리)")
     @GetMapping("/users/{username}/tree")
     FolderTree tree(@CurrentUserId Long viewerId, @PathVariable String username) {
         return fsService.tree(viewerId, username);

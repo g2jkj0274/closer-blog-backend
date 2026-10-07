@@ -7,6 +7,7 @@ import com.closer.blog.post.dto.PostDetail;
 import com.closer.blog.post.dto.RestorePostRequest;
 import com.closer.blog.post.dto.TrashItem;
 import com.closer.blog.post.service.PostService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -30,6 +31,7 @@ public class TrashController {
 
     private final PostService postService;
 
+    @Operation(summary = "휴지통 목록 (cd ~/.trash)")
     @GetMapping
     CursorPage<TrashItem> list(@CurrentUserId Long userId,
                                @RequestParam(required = false) String cursor,
@@ -39,13 +41,16 @@ public class TrashController {
         return postService.listTrash(userId, cursor, size);
     }
 
-    // 본문 없이 보내도 된다. 그러면 원래 이름으로 복구한다
+    @Operation(summary = "휴지통에서 복구 (u)",
+            description = "본문 없이 보내면 원래 이름으로 복구한다. 그 자리에 같은 이름의 글이 있으면 409이고, fileName을 보내 새 이름으로 복구한다.")
     @PostMapping("/{id}/restore")
     PostDetail restore(@CurrentUserId Long userId, @PathVariable Long id,
                        @Valid @RequestBody(required = false) RestorePostRequest request) {
         return postService.restore(userId, id, (request == null) ? null : request.fileName());
     }
 
+    @Operation(summary = "완전 삭제 (휴지통에서 rm -f)",
+            description = "되돌릴 수 없다. 휴지통에 있는 글만 지운다.")
     @DeleteMapping("/{id}")
     ResponseEntity<Void> purge(@CurrentUserId Long userId, @PathVariable Long id) {
         postService.purge(userId, id);
