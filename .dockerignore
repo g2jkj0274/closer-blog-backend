@@ -1,0 +1,10 @@
+# docker build에 보내지 않는 것. 이미지는 gradlew, gradle/, build.gradle, settings.gradle, src/만 쓴다
+.git
+.github
+.gradle
+.idea
+build
+docs
+*.iml
+*.md
+compose.yaml

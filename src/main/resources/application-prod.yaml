@@ -1,6 +1,19 @@
 # 운영 프로필. application.yaml에서 바꿀 값만 둔다
+#
+# 실행할 때 넣어야 하는 환경 변수 (없으면 앱이 뜨지 않는다)
+#   SPRING_DATASOURCE_URL       jdbc:postgresql://호스트:5432/closer_blog
+#   SPRING_DATASOURCE_USERNAME
+#   SPRING_DATASOURCE_PASSWORD
+#   JWT_SECRET                  32바이트 이상의 무작위 문자열
+#   CORS_ALLOWED_ORIGINS        프런트 주소. 여럿이면 쉼표로 구분한다
 springdoc:
   api-docs:
     enabled: false      # API 문서를 운영에 내보이지 않는다 (docs/tech-stack.md 3.7절)
   swagger-ui:
     enabled: false
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}                       # 로컬용 기본값을 쓰지 않는다. 없으면 시작할 때 실패한다
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}

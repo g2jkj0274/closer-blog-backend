@@ -19,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 class OpenApiTest {
@@ -87,6 +88,11 @@ class OpenApiTest {
     @AutoConfigureMockMvc
     @Import(TestcontainersConfiguration.class)
     @ActiveProfiles("prod")
+    // 운영 프로필은 이 값들이 없으면 뜨지 않는다 (application-prod.yaml). DB는 Testcontainers가 넣는다
+    @TestPropertySource(properties = {
+            "JWT_SECRET=test-only-secret-for-prod-profile-0123456789",
+            "CORS_ALLOWED_ORIGINS=https://c1oser.dev"
+    })
     class Prod {
 
         @Autowired
