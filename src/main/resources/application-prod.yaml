@@ -1,0 +1,6 @@
+# 운영 프로필. application.yaml에서 바꿀 값만 둔다
+springdoc:
+  api-docs:
+    enabled: false      # API 문서를 운영에 내보이지 않는다 (docs/tech-stack.md 3.7절)
+  swagger-ui:
+    enabled: false
